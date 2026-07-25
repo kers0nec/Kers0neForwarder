@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kers0ne File Forwarder</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2430;--line:#2a3441;--txt:#e6edf3;--mut:#8b98a5;--acc:#4f8cff;--ok:#56d364;--err:#ff7b72;--warn:#e3b341}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,"Segoe UI",sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--line)}
+h1{font-size:18px;margin:0}
+header p{margin:2px 0 0;color:var(--mut);font-size:12px}
+main{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px;margin:0 auto;padding:20px 24px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+h2{font-size:15px;margin:0 0 12px}
+label{display:block;margin:14px 0 6px;font-size:12px;font-weight:600}
+label small{font-weight:400;color:var(--mut)}
+input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font:inherit;outline:none}
+input:focus,select:focus{border-color:var(--acc)}
+select[multiple]{padding:4px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+button{border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:8px 13px;border-radius:8px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--acc)}
+button:disabled{opacity:.5;cursor:not-allowed}
+#sendBtn{width:100%;margin-top:18px;padding:13px;font-size:15px;font-weight:600;background:linear-gradient(135deg,var(--acc),#6d5cff);border:none}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:20px;text-align:center;color:var(--mut);margin-top:6px}
+.drop.over{border-color:var(--acc);background:rgba(79,140,255,.08)}
+ul{list-style:none;margin:8px 0 0;padding:0;max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+li{display:flex;gap:8px;align-items:center;padding:8px 11px;border-bottom:1px solid var(--line);font-size:13px}
+li:last-child{border-bottom:none}
+li.empty,li.skip{color:var(--mut)}
+li.skip{background:rgba(210,153,34,.07)}
+.nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip{background:rgba(79,140,255,.15);color:#9dc0ff;border-radius:999px;padding:2px 8px;font-size:11px}
+.chip.w{background:rgba(210,153,34,.15);color:var(--warn)}
+.x{background:none;border:none;color:var(--mut);font-size:16px;padding:0 4px}
+.checks{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--mut)}
+.checks label{display:flex;gap:6px;align-items:center;margin:0;font-weight:400}
+.checks input{width:auto}
+.bar{display:flex;gap:8px;align-items:center;margin:10px 0}
+.pill{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.pill.o{color:var(--ok)}.pill.e{color:var(--err)}.pill.s{color:var(--warn)}
+.bar button{margin-left:auto;font-size:12px;padding:5px 10px}
+#log{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;height:210px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.ln{padding:2px 0;white-space:pre-wrap;word-break:break-word}
+.ts{color:#5b6674;margin-right:8px}
+.ok{color:var(--ok)}.err{color:var(--err)}.warn{color:var(--warn)}.info{color:#9dc0ff}.mut{color:var(--mut)}
+footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kers0ne File Forwarder</h1>
+  <p>Select sources → attach files → press Send. Files only; text messages are ignored.</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1 · Source Selection</h2>
+    <div class="row">
+      <input id="chName" placeholder="New source channel name" style="flex:1;min-width:160px">
+      <button id="addCh">+ Add</button>
+    </div>
+
+    <label for="chSel">Source channel(s) <small>— ctrl/cmd-click for multiple</small></label>
+    <select id="chSel" multiple size="5"></select>
+    <div class="row">
+      <button id="allCh">Select all</button>
+      <button id="delCh">Delete selected</button>
+    </div>
+
+    <label>Attach files to selected channel(s)</label>
+    <div class="drop" id="drop">
+      <input type="file" id="file" multiple hidden>
+      <div>Drop files here or <button id="browse" style="border:none;background:none;color:var(--acc);text-decoration:underline;padding:0">browse</button></div>
+    </div>
+
+    <div class="row">
+      <input id="msg" placeholder="Text-only message (will be ignored)" style="flex:1;min-width:160px">
+      <button id="addMsg">Add message</button>
+    </div>
+
+    <label>Queue <small id="qmeta"></small></label>
+    <ul id="list"><li class="empty">Nothing queued yet.</li></ul>
+    <div class="row"><button id="clearQ">Clear queue</button></div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Webhook &amp; Target</h2>
+
+    <label for="hook">Webhook URL <small>— payload is POSTed here</small></label>
+    <input type="url" id="hook" placeholder="https://your.endpoint/webhook">
+
+    <label for="tmode">Target destination type</label>
+    <select id="tmode">
+      <option value="channel_id">Source / Target Channel ID</option>
+      <option value="webhook">Target Webhook URL</option>
+    </select>
+
+    <label for="tval">Target destination value</label>
+    <input id="tval" placeholder="e.g. 1024856913247129600">
+
+    <label for="pmode">Payload format</label>
+    <select id="pmode">
+      <option value="multipart">multipart/form-data (real upload)</option>
+      <option value="json">application/json (base64)</option>
+    </select>
+
+    <label for="foot">Footer on every file</label>
+    <input id="foot" value="Copied By Kers0ne Webhook">
+
+    <div class="checks">
+      <label><input type="checkbox" id="perFile" checked> One request per file</label>
+      <label><input type="checkbox" id="dry"> Dry run (no POST)</label>
+    </div>
+
+    <button id="sendBtn">🚀 Send Files</button>
+
+    <h2 style="margin-top:22px">3 · Status Log</h2>
+    <div class="bar">
+      <span class="pill o" id="cOk">0 success</span>
+      <span class="pill e" id="cErr">0 failed</span>
+      <span class="pill s" id="cSkip">0 skipped</span>
+      <button id="clearLog">Clear</button>
+    </div>
+    <div id="log"><div class="ln mut">Log empty. Configure a webhook and press Send Files.</div></div>
+  </section>
+</main>
+
+<footer>Copied By Kers0ne Webhook</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+let channels=[], queue=[], counts={ok:0,err:0,skip:0}, uid=0;
+
+/* ---------- channels ---------- */
+function drawCh(){
+  const sel=$('chSel'), keep=new Set([...sel.selectedOptions].map(o=>o.value));
+  sel.innerHTML='';
+  channels.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c; o.textContent=c;
+    if(keep.has(c))o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function selected(){return [...$('chSel').selectedOptions].map(o=>o.value);}
+$('addCh').onclick=()=>{
+  const v=$('chName').value.trim();
+  if(!v)return log('warn','Channel name is empty.');
+  if(channels.includes(v))return log('warn','Channel already exists: '+v);
+  channels.push(v); $('chName').value=''; drawCh(); log('info','Added source channel: '+v);
+};
+$('chName').addEventListener('keydown',e=>{if(e.key==='Enter')$('addCh').click();});
+$('allCh').onclick=()=>{[...$('chSel').options].forEach(o=>o.selected=true);};
+$('delCh').onclick=()=>{
+  const s=selected(); if(!s.length)return log('warn','No channel selected.');
+  channels=channels.filter(c=>!s.includes(c));
+  queue=queue.filter(i=>!s.includes(i.channel));
+  drawCh(); drawQ(); log('info','Deleted channel(s): '+s.join(', '));
+};
+
+/* ---------- queue ---------- */
+function addFiles(files){
+  const chs=selected();
+  if(!chs.length)return log('err','Select at least one source channel before attaching files.');
+  if(!files.length)return;
+  [...files].forEach(f=>chs.forEach(c=>queue.push({id:++uid,type:'file',file:f,name:f.name,size:f.size,channel:c})));
+  drawQ(); log('info',`Queued ${files.length} file(s) → ${chs.join(', ')}`);
+}
+$('browse').onclick=()=>$('file').click();
+$('file').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over');}));
+['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+$('addMsg').onclick=()=>{
+  const t=$('msg').value.trim(); if(!t)return;
+  const chs=selected(); if(!chs.length)return log('err','Select a source channel first.');
+  chs.forEach(c=>queue.push({id:++uid,type:'text',name:t,channel:c}));
+  $('msg').value=''; drawQ(); log('warn','Text-only message queued — it will be ignored on send.');
+};
+$('clearQ').onclick=()=>{queue=[];drawQ();log('info','Queue cleared.');};
+
+function drawQ(){
+  const ul=$('list'); ul.innerHTML='';
+  const nf=queue.filter(i=>i.type==='file').length;
+  $('qmeta').textContent=queue.length?`— ${nf} file(s), ${queue.length-nf} ignored`:'';
+  if(!queue.length){ul.innerHTML='<li class="empty">Nothing queued yet.</li>';return;}
+  queue.forEach(i=>{
+    const li=document.createElement('li');
+    if(i.type==='text')li.className='skip';
+    li.innerHTML=`<span class="chip${i.type==='text'?' w':''}">${i.channel}</span>
+      <span class="nm">${i.type==='file'?'📎 ':'💬 '}${esc(i.name)}</span>
+      <span style="color:var(--mut);font-size:11px">${i.type==='file'?fmt(i.size):'text — ignored'}</span>`;
+    const b=document.createElement('button'); b.className='x'; b.textContent='×';
+    b.onclick=()=>{queue=queue.filter(q=>q.id!==i.id);drawQ();};
+    li.appendChild(b); ul.appendChild(li);
+  });
+}
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const fmt=b=>b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(2)+' MB';
+
+/* ---------- logging ---------- */
+function log(kind,msg){
+  const box=$('log');
+  if(box.querySelector('.mut'))box.innerHTML='';
+  const d=document.createElement('div');
+  d.className='ln '+kind;
+  d.innerHTML=`<span class="ts">${new Date().toLocaleTimeString()}</span>${esc(msg)}`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+function bump(k){counts[k]++;$('cOk').textContent=counts.ok+' success';$('cErr').textContent=counts.err+' failed';$('cSkip').textContent=counts.skip+' skipped';}
+$('clearLog').onclick=()=>{$('log').innerHTML='<div class="ln mut">Log empty.</div>';counts={ok:0,err:0,skip:0};bump('ok');counts.ok=0;$('cOk').textContent='0 success';};
+
+const b64=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+
+/* ---------- send ---------- */
+$('sendBtn').onclick=async()=>{
+  const hook=$('hook').value.trim(), tval=$('tval').value.trim(), tmode=$('tmode').value;
+  const footer=$('foot').value, pmode=$('pmode').value, dry=$('dry').checked, per=$('perFile').checked;
+  const chs=selected();
+
+  if(!hook&&!dry)return log('err','Webhook URL is required.');
+  if(!chs.length)return log('err','No source channel selected.');
+  if(!tval)return log('err','Target destination is required.');
+
+  const skipped=queue.filter(i=>chs.includes(i.channel)&&i.type==='text');
+  skipped.forEach(i=>{bump('skip');log('warn','Skipped text-only message: "'+i.name+'"');});
+
+  const files=queue.filter(i=>chs.includes(i.channel)&&i.type==='file');
+  if(!files.length)return log('err','No files to forward for the selected channel(s).');
+
+  $('sendBtn').disabled=true;
+  log('info',`Forwarding ${files.length} file(s) from [${chs.join(', ')}] → ${tmode}:${tval}${dry?' (dry run)':''}`);
+
+  const batches = per ? files.map(f=>[f]) : [files];
+  for(const batch of batches){
+    const meta={
+      source_channels:[...new Set(batch.map(f=>f.channel))],
+      target:{type:tmode,value:tval},
+      footer, sent_at:new Date().toISOString(),
+      files:batch.map(f=>({filename:f.name,size:f.size,mime:f.file.type||'application/octet-stream',source_channel:f.channel}))
+    };
+    const label=batch.map(f=>f.name).join(', ');
+    try{
+      let opts;
+      if(pmode==='json'){
+        const withData=await Promise.all(batch.map(async f=>({
+          filename:f.name,size:f.size,mime:f.file.type||'application/octet-stream',
+          source_channel:f.channel,content_base64:await b64(f.file)})));
+        opts={method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({...meta,files:withData,content:footer})};
+      }else{
+        const fd=new FormData();
+        fd.append('payload_json',JSON.stringify({...meta,content:footer}));
+        batch.forEach((f,i)=>fd.append('files['+i+']',f.file,f.name));
+        fd.append('content',footer);
+        opts={method:'POST',body:fd};
+      }
+      if(dry){log('ok','DRY RUN ok — payload built for: '+label);bump('ok');continue;}
+      const r=await fetch(hook,opts);
+      if(r.ok||r.status===204){log('ok',`✔ Sent ${label} — HTTP ${r.status} · footer: "${footer}"`);bump('ok');}
+      else{log('err',`✖ Failed ${label} — HTTP ${r.status} ${r.statusText}`);bump('err');}
+    }catch(e){
+      log('err',`✖ Failed ${label} — ${e.message} (check URL / CORS)`);bump('err');
+    }
+  }
+  $('sendBtn').disabled=false;
+  log('info','Send complete.');
+};
+
+/* seed */
+channels=['#general-uploads','#design-drops'];drawCh();
+</script>
+</body>
+</html>
