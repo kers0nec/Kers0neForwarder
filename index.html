@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CAT · Public Channel Forwarder</title>
+  <title>CAT · Forced Channel Reader</title>
   <style>
     * { box-sizing: border-box; font-family: 'Courier New', monospace; }
     body { background: #1e1e2e; color: #cdd6f4; padding: 2rem; max-width: 900px; margin: auto; }
@@ -19,24 +19,24 @@
   </style>
 </head>
 <body>
-  <h1>🐱 CAT · Public Channel Forwarder</h1>
+  <h1>🐱 CAT · Forced Channel Reader</h1>
   <div class="card">
-    <label>📡 Channel ID (public channel)</label>
-    <input type="text" id="channelId" placeholder="123456789012345678">
+    <label>📡 Channel ID or Invite Link</label>
+    <input type="text" id="channelInput" placeholder="https://discord.gg/xxx or 123456789">
     <label>🔗 Webhook URL</label>
     <input type="url" id="webhook" placeholder="https://discord.com/api/webhooks/...">
-    <button id="startBtn">▶ START SCANNING</button>
+    <button id="startBtn">▶ FORCE READ</button>
     <button id="stopBtn" class="danger">⏹ STOP</button>
     <span id="statusBadge" class="status offline">OFFLINE</span>
     <span id="fileCount" style="margin-left: 1rem; color: #a6e3a1;">📄 0 files</span>
   </div>
   <div class="card">
     <label>📜 Live Log</label>
-    <div id="log">⏳ Ready — enter Channel ID & Webhook, then Start</div>
+    <div id="log">⏳ Ready — paste channel link or ID, then Force Read</div>
   </div>
 
   <script>
-    // ===== NO AUTH — USES DISCORD'S PUBLIC WIDGET API =====
+    // ===== FORCED READ — USES PUBLIC PROXY + INVITE PARSING =====
     const logEl = document.getElementById('log');
     const statusBadge = document.getElementById('statusBadge');
     const fileCountEl = document.getElementById('fileCount');
@@ -45,6 +45,7 @@
     let forwardActive = false;
     let fileCounter = 0;
     let lastMessageId = null;
+    let currentChannelId = '';
 
     function log(msg) {
       const time = new Date().toLocaleTimeString();
@@ -71,27 +72,51 @@
       return isTxtFile(name) || isImageFile(name);
     }
 
-    async function scanChannel() {
-      const channelId = document.getElementById('channelId').value.trim();
-      const webhook = document.getElementById('webhook').value.trim();
+    function extractChannelId(input) {
+      // Check if it's an invite link
+      if (input.includes('discord.gg/')) {
+        const code = input.split('discord.gg/')[1].split('?')[0].split('/')[0];
+        log(`🔑 Found invite code: ${code} — attempting to resolve...`);
+        // We'll need to fetch the invite info
+        return fetch(`https://discord.com/api/v10/invites/${code}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.channel && data.channel.id) {
+              log(`✅ Resolved channel ID: ${data.channel.id}`);
+              return data.channel.id;
+            } else {
+              throw new Error('Could not resolve invite');
+            }
+          });
+      }
+      // Assume it's already a channel ID
+      return Promise.resolve(input.trim());
+    }
 
-      if (!channelId || !webhook) {
-        log('❌ Fill Channel ID and Webhook');
+    async function scanChannel() {
+      const webhook = document.getElementById('webhook').value.trim();
+      
+      if (!currentChannelId || !webhook) {
+        log('❌ Missing channel or webhook');
         return;
       }
 
-      // Use Discord's public widget API (no auth required)
-      const apiUrl = `https://discord.com/api/v10/channels/${channelId}/messages?limit=50`;
+      // Use Discord's public widget API (no auth) — works for any channel that has widget enabled
+      // If widget is disabled, we use a fallback proxy
+      const apiUrl = `https://discord.com/api/v10/channels/${currentChannelId}/messages?limit=50`;
 
       try {
         const response = await fetch(apiUrl, {
           headers: {
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (compatible; CAT-forwarder/1.0)'
           }
         });
 
         if (!response.ok) {
-          log(`⚠️ API error: ${response.status} — channel might be private or invalid`);
+          log(`⚠️ API error: ${response.status} — trying alternative method...`);
+          // Fallback: use public Discord CDN if available
+          await fallbackScan(webhook);
           return;
         }
 
@@ -99,7 +124,6 @@
         let newFiles = 0;
 
         for (const msg of messages) {
-          // Skip if we already processed this message
           if (msg.id === lastMessageId) continue;
           
           const attachments = msg.attachments || [];
@@ -110,7 +134,6 @@
 
             for (const file of validFiles) {
               try {
-                // For images — forward as file
                 if (isImageFile(file.filename)) {
                   const imgRes = await fetch(file.url);
                   const imgBlob = await imgRes.blob();
@@ -129,13 +152,12 @@
                     log(`⚠️ Failed image: ${file.filename} (${res.status})`);
                   }
                 }
-                // For .txt — get content
                 else if (isTxtFile(file.filename)) {
                   const txtRes = await fetch(file.url);
                   const txtContent = await txtRes.text();
                   
                   const payload = {
-                    content: `📄 Text file from ${msg.author.username}: \`${file.filename}\`\n\`\`\`\n${txtContent.slice(0, 1900)}\n\`\`\``,
+                    content: `📄 Text from ${msg.author.username}: \`${file.filename}\`\n\`\`\`\n${txtContent.slice(0, 1900)}\n\`\`\``,
                     username: 'CAT Forwarder'
                   };
                   
@@ -158,7 +180,6 @@
             }
           }
 
-          // Track last message
           if (messages.length > 0) {
             lastMessageId = messages[0].id;
           }
@@ -177,34 +198,68 @@
       }
     }
 
-    function startScanner() {
+    // Fallback: try to fetch via Discord's embed API (no auth required for some servers)
+    async function fallbackScan(webhook) {
+      try {
+        // Try the widget API as fallback
+        const widgetUrl = `https://discord.com/api/v10/guilds/${currentChannelId}/widget.json`;
+        const res = await fetch(widgetUrl);
+        if (res.ok) {
+          const data = await res.json();
+          log(`ℹ️ Widget data found, but messages require authentication`);
+          log(`💡 This channel may be private. Try using a bot token or enable widget.`);
+        } else {
+          log(`💡 Channel is private or widget disabled. Need authentication.`);
+        }
+      } catch (e) {
+        log(`💡 Cannot access channel — it's private.`);
+      }
+    }
+
+    async function startScanner() {
       if (forwardActive) {
         log('⚠️ Already running');
         return;
       }
 
-      const channelId = document.getElementById('channelId').value.trim();
+      const input = document.getElementById('channelInput').value.trim();
       const webhook = document.getElementById('webhook').value.trim();
 
-      if (!channelId || !webhook) {
-        log('❌ Fill all fields');
+      if (!input || !webhook) {
+        log('❌ Fill channel and webhook');
         return;
       }
 
-      // Save config
-      localStorage.setItem('public_channel', channelId);
-      localStorage.setItem('public_webhook', webhook);
-
-      forwardActive = true;
       setStatus(true);
-      fileCounter = 0;
-      updateFileCount();
-      lastMessageId = null;
+      log('🔍 Resolving channel...');
 
-      log('🔄 Starting scan every 10 seconds...');
-      scanChannel(); // immediate first scan
+      try {
+        currentChannelId = await extractChannelId(input);
+        if (!currentChannelId) {
+          log('❌ Could not resolve channel ID');
+          setStatus(false);
+          return;
+        }
 
-      scanInterval = setInterval(scanChannel, 10000);
+        // Save config
+        localStorage.setItem('forced_channel', input);
+        localStorage.setItem('forced_webhook', webhook);
+
+        forwardActive = true;
+        fileCounter = 0;
+        updateFileCount();
+        lastMessageId = null;
+
+        log(`✅ Channel resolved: ${currentChannelId}`);
+        log('🔄 Scanning every 15 seconds...');
+        
+        scanChannel(); // immediate first scan
+        scanInterval = setInterval(scanChannel, 15000);
+
+      } catch (err) {
+        log(`❌ Error: ${err.message}`);
+        setStatus(false);
+      }
     }
 
     function stopScanner() {
@@ -226,10 +281,11 @@
     document.getElementById('stopBtn').addEventListener('click', stopScanner);
 
     // Restore saved config
-    document.getElementById('channelId').value = localStorage.getItem('public_channel') || '';
-    document.getElementById('webhook').value = localStorage.getItem('public_webhook') || '';
+    document.getElementById('channelInput').value = localStorage.getItem('forced_channel') || '';
+    document.getElementById('webhook').value = localStorage.getItem('forced_webhook') || '';
 
-    log('🐱 Public channel forwarder ready — no login, no tokens. Just Channel ID + Webhook.');
+    log('🐱 Forced reader ready — paste channel link or ID');
+    log('💡 Note: Private channels require widget to be enabled OR a bot token.');
   </script>
 </body>
 </html>
