@@ -26,7 +26,7 @@
             background: #2f3136;
             border-radius: 16px;
             padding: 40px;
-            max-width: 600px;
+            max-width: 650px;
             width: 100%;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
@@ -164,7 +164,7 @@
             border-radius: 8px;
             font-size: 14px;
             display: none;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
             white-space: pre-wrap;
             word-break: break-word;
@@ -194,21 +194,6 @@
             color: #b9bbbe;
         }
 
-        .stats {
-            display: flex;
-            gap: 20px;
-            margin-top: 10px;
-            font-size: 13px;
-        }
-
-        .stats span {
-            color: #72767d;
-        }
-
-        .stats strong {
-            color: #dcddde;
-        }
-
         .spinner {
             display: inline-block;
             width: 18px;
@@ -223,27 +208,43 @@
             to { transform: rotate(360deg); }
         }
 
-        .webhook-section {
+        .config-note {
             background: #1e2126;
-            padding: 16px;
+            padding: 12px 16px;
             border-radius: 8px;
+            border-left: 3px solid #faa81a;
             margin-bottom: 20px;
-            border: 1px solid #3a3c42;
-        }
-
-        .webhook-section .hint {
             font-size: 13px;
             color: #b9bbbe;
         }
 
-        .webhook-section .url-display {
+        .config-note strong {
+            color: #ffffff;
+        }
+
+        .webhook-preview {
+            background: #1e2126;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border-left: 3px solid #3ba55d;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #b9bbbe;
+            word-break: break-all;
+        }
+
+        .webhook-preview strong {
+            color: #ffffff;
+        }
+
+        .url-display {
             background: #202225;
             padding: 8px 12px;
             border-radius: 4px;
             font-family: monospace;
             font-size: 13px;
             color: #dcddde;
-            margin-top: 8px;
+            margin-top: 4px;
             word-break: break-all;
         }
     </style>
@@ -251,24 +252,31 @@
 <body>
     <div class="container">
         <h1>📤 File Forwarder</h1>
-        <div class="subtitle">Forward files from any Discord channel to a webhook</div>
+        <div class="subtitle">Forward files from ANY Discord channel to a webhook</div>
 
-        <div class="webhook-section">
-            <div class="hint">📌 Target Webhook</div>
-            <div class="url-display" id="webhookDisplay">https://discord.com/api/webhooks/...</div>
+        <div class="config-note">
+            ⚠️ <strong>User Token Required</strong><br>
+            This tool uses your personal Discord token to read messages. 
+            Your token is never stored or sent anywhere except to Discord's API.
         </div>
 
         <form id="forwardForm">
             <div class="form-group">
-                <label>Source Channel ID</label>
-                <input type="text" id="channelId" placeholder="123456789012345678" required>
-                <div class="input-hint">The ID of the channel to copy files from</div>
+                <label>Target Webhook URL</label>
+                <input type="text" id="webhookUrl" placeholder="https://discord.com/api/webhooks/1234567890/abcdefg" required>
+                <div class="input-hint">Where files will be forwarded to</div>
             </div>
 
             <div class="form-group">
-                <label>Bot Token</label>
-                <input type="text" id="botToken" placeholder="MTIzNDU2Nzg5MDEyMzQ1Njc4...">
-                <div class="input-hint">Required to fetch messages from the source channel</div>
+                <label>Your Discord Token</label>
+                <input type="text" id="userToken" placeholder="MTIzNDU2Nzg5MDEyMzQ1Njc4...">
+                <div class="input-hint">Your personal token (never stored). Get it from Discord DevTools.</div>
+            </div>
+
+            <div class="form-group">
+                <label>Source Channel ID</label>
+                <input type="text" id="channelId" placeholder="123456789012345678" required>
+                <div class="input-hint">The ID of the channel to copy files from</div>
             </div>
 
             <div class="form-group">
@@ -300,17 +308,8 @@
 
     <script>
         // ============================================================
-        // CONFIGURATION
-        // ============================================================
-        // 🔴 SET YOUR WEBHOOK URL HERE:
-        const WEBHOOK_URL = "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN";
-
-        // ============================================================
         // CORE LOGIC
         // ============================================================
-        const webhookDisplay = document.getElementById('webhookDisplay');
-        webhookDisplay.textContent = WEBHOOK_URL;
-
         const form = document.getElementById('forwardForm');
         const status = document.getElementById('status');
         const forwardBtn = document.getElementById('forwardBtn');
@@ -319,10 +318,6 @@
             status.textContent = message;
             status.className = type;
             status.style.display = 'block';
-        }
-
-        function hideStatus() {
-            status.style.display = 'none';
         }
 
         function setLoading(isLoading) {
@@ -335,19 +330,25 @@
         }
 
         async function forwardFiles() {
+            const webhookUrl = document.getElementById('webhookUrl').value.trim();
+            const userToken = document.getElementById('userToken').value.trim();
             const channelId = document.getElementById('channelId').value.trim();
-            const botToken = document.getElementById('botToken').value.trim();
             const limit = parseInt(document.getElementById('limit').value) || 100;
             const fileTypesInput = document.getElementById('fileTypes').value.trim();
             const includeMetadata = document.getElementById('includeMetadata').checked;
+
+            if (!webhookUrl) {
+                showStatus('❌ Please enter a target webhook URL', 'error');
+                return;
+            }
 
             if (!channelId) {
                 showStatus('❌ Please enter a source channel ID', 'error');
                 return;
             }
 
-            if (!botToken) {
-                showStatus('❌ Bot token is required to fetch messages', 'error');
+            if (!userToken) {
+                showStatus('❌ Discord token is required to fetch messages', 'error');
                 return;
             }
 
@@ -358,7 +359,7 @@
 
             try {
                 // ==========================================
-                // FETCH MESSAGES USING BOT TOKEN
+                // FETCH MESSAGES USING USER TOKEN
                 // ==========================================
                 const allMessages = [];
                 let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
@@ -366,12 +367,18 @@
                 while (allMessages.length < limit) {
                     const response = await fetch(url, {
                         headers: {
-                            'Authorization': `Bot ${botToken}`
+                            'Authorization': userToken
                         }
                     });
 
+                    if (response.status === 401) {
+                        showStatus('❌ Invalid token! Please check your Discord token.', 'error');
+                        setLoading(false);
+                        return;
+                    }
+
                     if (response.status === 403) {
-                        showStatus(`❌ Permission Denied! Bot cannot view channel ${channelId}`, 'error');
+                        showStatus(`❌ Permission Denied! Cannot view channel ${channelId}`, 'error');
                         setLoading(false);
                         return;
                     }
@@ -382,8 +389,15 @@
                         return;
                     }
 
+                    if (response.status === 429) {
+                        showStatus('⏳ Rate limited! Waiting 5 seconds...', 'loading');
+                        await delay(5000);
+                        continue;
+                    }
+
                     if (response.status !== 200) {
-                        showStatus(`❌ API Error: ${response.status} - ${response.statusText}`, 'error');
+                        const errorData = await response.json().catch(() => ({}));
+                        showStatus(`❌ API Error: ${response.status} - ${errorData.message || response.statusText}`, 'error');
                         setLoading(false);
                         return;
                     }
@@ -424,7 +438,7 @@
                     if (includeMetadata) {
                         const authorName = msg.author.username;
                         const authorId = msg.author.id;
-                        const timestamp = msg.timestamp ? msg.timestamp.slice(0, 19) : '';
+                        const timestamp = msg.timestamp ? msg.timestamp.slice(0, 19).replace('T', ' ') : '';
                         header = `📎 **${authorName}** (\`${authorId}\`) [${timestamp}]\n`;
                     }
 
@@ -434,11 +448,10 @@
                         const fileSize = att.size || 0;
 
                         // Check file type filter
-                        if (fileTypes) {
+                        if (fileTypes && fileTypes.length > 0) {
                             const ext = '.' + filename.split('.').pop().toLowerCase();
-                            if (!fileTypes.some(t => ext === t || filename.toLowerCase().includes(t.toLowerCase()))) {
-                                continue;
-                            }
+                            const matches = fileTypes.some(t => ext === t || filename.toLowerCase().includes(t.toLowerCase()));
+                            if (!matches) continue;
                         }
 
                         // Skip files larger than 25MB
@@ -453,8 +466,9 @@
 
                             if (fileData) {
                                 // Send to webhook
-                                await sendToWebhook(fileData, filename, header);
+                                await sendToWebhook(webhookUrl, fileData, filename, header);
                                 fileCount++;
+                                showStatus(`📤 Forwarded ${fileCount} files...`, 'loading');
                                 await delay(100);
                             } else {
                                 errors.push(`Failed to download: ${filename}`);
@@ -500,7 +514,7 @@
             }
         }
 
-        async function sendToWebhook(fileData, filename, header) {
+        async function sendToWebhook(webhookUrl, fileData, filename, header) {
             const formData = new FormData();
 
             if (header) {
@@ -511,13 +525,14 @@
             const blob = new Blob([fileData]);
             formData.append('file', blob, filename);
 
-            const response = await fetch(WEBHOOK_URL, {
+            const response = await fetch(webhookUrl, {
                 method: 'POST',
                 body: formData
             });
 
             if (!response.ok) {
-                throw new Error(`Webhook error: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`Webhook error (${response.status}): ${errorText}`);
             }
         }
 
@@ -532,13 +547,6 @@
             e.preventDefault();
             await forwardFiles();
         });
-
-        // Validate webhook URL on load
-        if (WEBHOOK_URL.includes('YOUR_WEBHOOK_ID') || WEBHOOK_URL.includes('YOUR_WEBHOOK_TOKEN')) {
-            showStatus('⚠️ Please configure your webhook URL in the script (line ~115)', 'error');
-        } else {
-            hideStatus();
-        }
     </script>
 </body>
 </html>
