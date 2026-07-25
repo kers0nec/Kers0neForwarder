@@ -16,6 +16,7 @@
     .status { display: inline-block; padding: 0.2rem 1rem; border-radius: 20px; font-weight: bold; }
     .online { background: #a6e3a1; color: #1e1e2e; }
     .offline { background: #f38ba8; color: #1e1e2e; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -23,29 +24,39 @@
   <h1>🐱 CAT · Discord → Webhook</h1>
 
   <div class="card">
-    <label>🔑 Bot Token</label>
-    <input type="password" id="token" placeholder="MTE... your bot token">
-
     <label>📡 Channel ID</label>
     <input type="text" id="channelId" placeholder="123456789012345678">
 
     <label>🔗 Webhook URL</label>
     <input type="url" id="webhook" placeholder="https://discord.com/api/webhooks/...">
 
-    <button id="startBtn">▶ START FORWARDING</button>
-    <button id="stopBtn" style="background:#f38ba8; margin-left: 0.5rem;">⏹ STOP</button>
-    <span id="statusBadge" class="status offline" style="margin-left: 1rem;">OFFLINE</span>
+    <button id="authBtn">🔑 Login with Discord</button>
+    <button id="startBtn" class="hidden">▶ START FORWARDING</button>
+    <button id="stopBtn" class="hidden" style="background:#f38ba8; margin-left: 0.5rem;">⏹ STOP</button>
+    <span id="statusBadge" class="status offline">OFFLINE</span>
+    <span id="userInfo" style="margin-left: 1rem; color: #a6e3a1;"></span>
   </div>
 
   <div class="card">
     <label>📜 Live Log</label>
-    <div id="log">⏳ Ready — set config and hit Start</div>
+    <div id="log">⏳ Ready — login with Discord first</div>
   </div>
 
   <script>
-    // ===== CAT'S PURE BROWSER FORWARDER =====
+    // ===== CAT'S PURE BROWSER FORWARDER (NO BOT TOKEN) =====
     const logEl = document.getElementById('log');
     const statusBadge = document.getElementById('statusBadge');
+    const userInfo = document.getElementById('userInfo');
+    const authBtn = document.getElementById('authBtn');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    let token = localStorage.getItem('discord_token') || '';
+    let ws = null;
+    let heartbeat = null;
+    let sessionId = null;
+    let lastSeq = null;
+    let forwardActive = false;
 
     function log(msg) {
       const time = new Date().toLocaleTimeString();
@@ -58,25 +69,82 @@
       statusBadge.className = 'status ' + (online ? 'online' : 'offline');
     }
 
-    let ws = null;
-    let heartbeat = null;
-    let sessionId = null;
-    let lastSeq = null;
-    let forwardActive = false;
+    // ===== DISCORD OAUTH LOGIN (gets user token) =====
+    async function loginWithDiscord() {
+      log('🔑 Opening Discord login...');
+      const clientId = 'YOUR_CLIENT_ID'; // Replace with your app's client ID
+      const redirectUri = window.location.origin + window.location.pathname;
+      const scope = 'identify guilds messages.read';
+      const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
+      
+      // Open popup
+      const width = 500, height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(url, 'Discord Login', `width=${width},height=${height},left=${left},top=${top}`);
+      
+      // Wait for redirect
+      const checkPopup = setInterval(() => {
+        try {
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            return;
+          }
+          const popupUrl = popup.location.href;
+          if (popupUrl.includes('access_token=')) {
+            const hash = popupUrl.split('#')[1];
+            const params = new URLSearchParams(hash);
+            const accessToken = params.get('access_token');
+            if (accessToken) {
+              token = accessToken;
+              localStorage.setItem('discord_token', token);
+              popup.close();
+              clearInterval(checkPopup);
+              log('✅ Login successful!');
+              fetchUserInfo();
+              showControls();
+            }
+          }
+        } catch (e) { /* cross-origin, ignore */ }
+      }, 500);
+    }
 
-    // ===== DISCORD GATEWAY (pure WebSocket) =====
+    async function fetchUserInfo() {
+      try {
+        const res = await fetch('https://discord.com/api/v10/users/@me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        userInfo.textContent = `👤 ${data.username}#${data.discriminator}`;
+        log(`👋 Logged in as ${data.username}`);
+      } catch (err) {
+        log(`⚠️ Could not fetch user: ${err.message}`);
+      }
+    }
+
+    function showControls() {
+      authBtn.classList.add('hidden');
+      startBtn.classList.remove('hidden');
+      stopBtn.classList.remove('hidden');
+    }
+
+    // ===== DISCORD GATEWAY (WebSocket) =====
     async function startForwarder() {
-      const token = document.getElementById('token').value.trim();
       const channelId = document.getElementById('channelId').value.trim();
       const webhook = document.getElementById('webhook').value.trim();
 
-      if (!token || !channelId || !webhook) {
-        log('❌ Fill all fields first');
+      if (!channelId || !webhook) {
+        log('❌ Fill Channel ID and Webhook URL');
+        return;
+      }
+
+      if (!token) {
+        log('❌ Please login first');
         return;
       }
 
       if (forwardActive) {
-        log('⚠️ Already running — stop first');
+        log('⚠️ Already running');
         return;
       }
 
@@ -84,7 +152,6 @@
       setStatus(false);
 
       try {
-        // 1. Get gateway URL
         const gwResp = await fetch('https://discord.com/api/v10/gateway');
         const gwData = await gwResp.json();
         const gatewayUrl = gwData.url + '/?v=10&encoding=json';
@@ -92,8 +159,7 @@
         ws = new WebSocket(gatewayUrl);
 
         ws.onopen = () => {
-          log('✅ WebSocket open — sending identify');
-          // Identify payload
+          log('✅ WebSocket open — identifying');
           ws.send(JSON.stringify({
             op: 2,
             d: {
@@ -109,75 +175,91 @@
         };
 
         ws.onmessage = (event) => {
-          const payload = JSON.parse(event.data);
-          const { op, d, t, s } = payload;
+          try {
+            const payload = JSON.parse(event.data);
+            const { op, d, t, s } = payload;
 
-          if (s) lastSeq = s;
+            if (s) lastSeq = s;
 
-          // Handle events
-          if (t === 'READY') {
-            sessionId = d.session_id;
-            log(`✅ Ready — session: ${sessionId}`);
-            setStatus(true);
-            forwardActive = true;
+            if (t === 'READY') {
+              sessionId = d.session_id;
+              log(`✅ Ready — session: ${sessionId}`);
+              setStatus(true);
+              forwardActive = true;
 
-            // Request channel messages (last 50)
-            ws.send(JSON.stringify({
-              op: 14,
-              d: {
-                guild_id: null,
-                channel_id: channelId,
-                limit: 50
-              }
-            }));
-            log(`📥 Fetching last 50 messages from channel...`);
-          }
-
-          if (t === 'MESSAGE_CREATE') {
-            const msg = d;
-            if (msg.channel_id === channelId && !msg.author.bot) {
-              log(`📩 Forward: ${msg.author.username}: ${msg.content || '(embed/attach)'}`);
-              // Send to webhook
-              fetch(webhook, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  content: msg.content || '(no text)',
-                  embeds: msg.embeds || [],
-                  username: msg.author.username,
-                  avatar_url: `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png`
-                })
-              }).then(res => {
-                if (!res.ok) log(`⚠️ Webhook failed: ${res.status}`);
-                else log(`✅ Forwarded to webhook`);
-              }).catch(err => log(`❌ Webhook error: ${err.message}`));
+              // Request channel messages
+              ws.send(JSON.stringify({
+                op: 14,
+                d: {
+                  guild_id: null,
+                  channel_id: channelId,
+                  limit: 50
+                }
+              }));
+              log(`📥 Fetching last 50 messages from channel...`);
             }
-          }
 
-          // Heartbeat
-          if (op === 10) {
-            const interval = d.heartbeat_interval;
-            if (heartbeat) clearInterval(heartbeat);
-            heartbeat = setInterval(() => {
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ op: 1, d: lastSeq || null }));
+            if (t === 'MESSAGE_CREATE') {
+              const msg = d;
+              if (msg.channel_id === channelId && !msg.author.bot) {
+                log(`📩 Forward: ${msg.author.username}: ${msg.content || '(embed/attach)'}`);
+                fetch(webhook, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    content: msg.content || '(no text)',
+                    embeds: msg.embeds || [],
+                    username: msg.author.username,
+                    avatar_url: msg.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png` : null
+                  })
+                }).then(res => {
+                  if (!res.ok) log(`⚠️ Webhook failed: ${res.status}`);
+                  else log(`✅ Forwarded to webhook`);
+                }).catch(err => log(`❌ Webhook error: ${err.message}`));
               }
-            }, interval);
-            log(`💓 Heartbeat set (${interval}ms)`);
+            }
+
+            if (op === 10) {
+              const interval = d.heartbeat_interval;
+              if (heartbeat) clearInterval(heartbeat);
+              heartbeat = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ op: 1, d: lastSeq || null }));
+                }
+              }, interval);
+              log(`💓 Heartbeat set (${interval}ms)`);
+            }
+
+            // Handle errors
+            if (op === 9) {
+              log('❌ Invalid session — reconnecting...');
+              setTimeout(() => startForwarder(), 3000);
+            }
+
+          } catch (err) {
+            log(`⚠️ Parse error: ${err.message}`);
           }
         };
 
         ws.onerror = (err) => {
-          log(`❌ WS error: ${err.message}`);
+          log(`❌ WS error — check token or network`);
           setStatus(false);
           forwardActive = false;
         };
 
-        ws.onclose = () => {
-          log('🔌 Disconnected');
+        ws.onclose = (event) => {
+          log(`🔌 Disconnected (code: ${event.code})`);
           setStatus(false);
           forwardActive = false;
           if (heartbeat) clearInterval(heartbeat);
+          
+          // Auto-reconnect on non-normal close
+          if (event.code !== 1000) {
+            log('🔄 Auto-reconnecting in 5s...');
+            setTimeout(() => {
+              if (!forwardActive) startForwarder();
+            }, 5000);
+          }
         };
 
       } catch (err) {
@@ -188,7 +270,7 @@
 
     function stopForwarder() {
       if (ws) {
-        ws.close();
+        ws.close(1000, 'Manual stop');
         ws = null;
       }
       if (heartbeat) {
@@ -201,10 +283,35 @@
     }
 
     // ===== UI BINDINGS =====
-    document.getElementById('startBtn').addEventListener('click', startForwarder);
-    document.getElementById('stopBtn').addEventListener('click', stopForwarder);
+    authBtn.addEventListener('click', loginWithDiscord);
+    startBtn.addEventListener('click', startForwarder);
+    stopBtn.addEventListener('click', stopForwarder);
 
-    log('🐱 CAT loaded — enter token, channel ID, webhook, then Start');
+    // Check for existing token
+    if (token) {
+      log('🔑 Token found — logging in...');
+      fetchUserInfo();
+      showControls();
+    } else {
+      log('🔑 Click "Login with Discord" to start');
+    }
+
+    // Handle OAuth redirect callback
+    if (window.location.hash.includes('access_token=')) {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        token = accessToken;
+        localStorage.setItem('discord_token', token);
+        window.location.hash = '';
+        log('✅ Login successful!');
+        fetchUserInfo();
+        showControls();
+      }
+    }
+
+    log('🐱 CAT loaded — ready to forward');
   </script>
 </body>
 </html>
