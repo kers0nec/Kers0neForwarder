@@ -1,942 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ NEXUS FORWARD - Discord File Forwarder</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap');
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #0a0a1a;
-            color: #dcddde;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            background-image: 
-                radial-gradient(ellipse at 10% 20%, rgba(0, 255, 255, 0.05) 0%, transparent 50%),
-                radial-gradient(ellipse at 90% 80%, rgba(0, 255, 255, 0.05) 0%, transparent 50%),
-                linear-gradient(180deg, #0a0a1a 0%, #0d0d2b 100%);
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.02) 2px, rgba(0, 255, 255, 0.02) 4px),
-                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 255, 255, 0.02) 2px, rgba(0, 255, 255, 0.02) 4px);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .glow-orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(80px);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .glow-orb.orb1 {
-            width: 400px;
-            height: 400px;
-            background: rgba(0, 255, 255, 0.08);
-            top: -100px;
-            right: -100px;
-            animation: floatOrb 8s ease-in-out infinite;
-        }
-
-        .glow-orb.orb2 {
-            width: 300px;
-            height: 300px;
-            background: rgba(0, 255, 255, 0.06);
-            bottom: -50px;
-            left: -50px;
-            animation: floatOrb 10s ease-in-out infinite reverse;
-        }
-
-        @keyframes floatOrb {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(30px, -30px) scale(1.2); }
-        }
-
-        .container {
-            background: rgba(13, 13, 43, 0.85);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 45px;
-            max-width: 720px;
-            width: 100%;
-            border: 1px solid rgba(0, 255, 255, 0.15);
-            box-shadow: 
-                0 0 60px rgba(0, 255, 255, 0.05),
-                inset 0 1px 0 rgba(0, 255, 255, 0.1);
-            position: relative;
-            z-index: 1;
-            animation: slideUp 0.6s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 8px;
-        }
-
-        .header-icon {
-            font-size: 32px;
-            animation: pulseGlow 2s ease-in-out infinite;
-        }
-
-        @keyframes pulseGlow {
-            0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.3)); }
-            50% { filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.6)); }
-        }
-
-        h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 28px;
-            font-weight: 900;
-            background: linear-gradient(135deg, #00ffff, #0088ff, #00ffff);
-            background-size: 200% 200%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: shimmer 3s ease-in-out infinite;
-            letter-spacing: 2px;
-        }
-
-        @keyframes shimmer {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        .subtitle {
-            color: rgba(0, 255, 255, 0.6);
-            font-size: 13px;
-            margin-bottom: 30px;
-            padding-left: 12px;
-            border-left: 2px solid rgba(0, 255, 255, 0.3);
-            letter-spacing: 1px;
-            font-weight: 300;
-        }
-
-        .info-box {
-            background: rgba(0, 255, 255, 0.03);
-            padding: 16px 20px;
-            border-radius: 12px;
-            border-left: 3px solid #00ffff;
-            margin-bottom: 25px;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
-            line-height: 1.8;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 255, 255, 0.08);
-        }
-
-        .info-box strong {
-            color: #00ffff;
-            font-weight: 600;
-        }
-
-        .info-box code {
-            background: rgba(0, 255, 255, 0.1);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #00ffff;
-            font-family: 'Inter', monospace;
-        }
-
-        .form-group {
-            margin-bottom: 22px;
-            position: relative;
-        }
-
-        label {
-            display: block;
-            font-size: 11px;
-            font-weight: 600;
-            color: rgba(0, 255, 255, 0.7);
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
-
-        label .optional {
-            color: rgba(255, 255, 255, 0.3);
-            font-weight: 400;
-            text-transform: none;
-            letter-spacing: 0;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        textarea {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(0, 255, 255, 0.15);
-            border-radius: 12px;
-            color: #dcddde;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            outline: none;
-            font-family: 'Inter', sans-serif;
-        }
-
-        input:focus,
-        textarea:focus {
-            border-color: #00ffff;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
-            background: rgba(0, 0, 0, 0.6);
-        }
-
-        input::placeholder,
-        textarea::placeholder {
-            color: rgba(255, 255, 255, 0.2);
-        }
-
-        .input-hint {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.3);
-            margin-top: 4px;
-            letter-spacing: 0.5px;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 14px 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(0, 255, 255, 0.08);
-            transition: all 0.3s ease;
-        }
-
-        .checkbox-group:hover {
-            border-color: rgba(0, 255, 255, 0.2);
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            accent-color: #00ffff;
-            cursor: pointer;
-            filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.2));
-        }
-
-        .checkbox-group label {
-            margin: 0;
-            text-transform: none;
-            font-weight: 400;
-            cursor: pointer;
-            color: rgba(255, 255, 255, 0.7);
-            letter-spacing: 0;
-        }
-
-        .checkbox-group .badge {
-            background: rgba(0, 255, 255, 0.1);
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 10px;
-            color: #00ffff;
-            margin-left: auto;
-            border: 1px solid rgba(0, 255, 255, 0.1);
-        }
-
-        button {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #00ffff, #0088ff);
-            border: none;
-            border-radius: 12px;
-            color: #0a0a1a;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            font-family: 'Orbitron', sans-serif;
-            letter-spacing: 1px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        button::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            transform: rotate(45deg);
-            transition: all 0.5s ease;
-        }
-
-        button:hover:not(:disabled)::before {
-            transform: rotate(45deg) translate(50%, 50%);
-        }
-
-        button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(0, 255, 255, 0.3);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        #status {
-            margin-top: 20px;
-            padding: 16px;
-            border-radius: 12px;
-            font-size: 14px;
-            display: none;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-            font-family: 'Inter', monospace;
-            font-size: 13px;
-            line-height: 1.8;
-            border: 1px solid transparent;
-        }
-
-        #status::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        #status::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-        }
-
-        #status::-webkit-scrollbar-thumb {
-            background: #00ffff;
-            border-radius: 4px;
-        }
-
-        #status.loading {
-            display: block;
-            background: rgba(0, 255, 255, 0.03);
-            border-color: rgba(0, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        #status.success {
-            display: block;
-            background: rgba(0, 255, 255, 0.05);
-            border-color: rgba(0, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        #status.error {
-            display: block;
-            background: rgba(255, 0, 0, 0.05);
-            border-color: rgba(255, 0, 0, 0.2);
-            color: rgba(255, 100, 100, 0.9);
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(0, 0, 0, 0.2);
-            border-top-color: #0a0a1a;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .progress-container {
-            margin-top: 15px;
-            display: none;
-        }
-
-        .progress-container.active {
-            display: block;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 2px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #00ffff, #0088ff);
-            border-radius: 2px;
-            transition: width 0.3s ease;
-            width: 0%;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-        }
-
-        .progress-stats {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.4);
-            margin-top: 8px;
-        }
-
-        .progress-stats span {
-            font-family: 'Inter', monospace;
-        }
-
-        .speed-indicator {
-            color: #00ffff !important;
-        }
-
-        .batch-info {
-            background: rgba(0, 255, 255, 0.03);
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-            display: none;
-            border: 1px solid rgba(0, 255, 255, 0.05);
-            font-family: 'Inter', monospace;
-        }
-
-        .batch-info.active {
-            display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .status-dot.loading {
-            background: #00ffff;
-            animation: pulse 1s ease-in-out infinite;
-        }
-
-        .status-dot.success {
-            background: #00ff88;
-        }
-
-        .status-dot.error {
-            background: #ff0044;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.5); }
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .stat-item {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid rgba(0, 255, 255, 0.05);
-        }
-
-        .stat-item .stat-value {
-            font-size: 20px;
-            font-weight: 700;
-            color: #00ffff;
-            font-family: 'Orbitron', sans-serif;
-        }
-
-        .stat-item .stat-label {
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.3);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 4px;
-        }
-
-        @media (max-width: 600px) {
-            .container {
-                padding: 25px;
-            }
-            h1 {
-                font-size: 20px;
-            }
-            .header-icon {
-                font-size: 24px;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAT Discord Forwarder</title>
+  <style>
+    * { box-sizing: border-box; font-family: 'Courier New', monospace; }
+    body { background: #1e1e2e; color: #cdd6f4; padding: 2rem; max-width: 800px; margin: auto; }
+    .card { background: #313244; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; box-shadow: 0 0 20px #00000055; }
+    label { display: block; margin: 0.8rem 0 0.3rem; font-weight: bold; color: #a6e3a1; }
+    input, textarea { width: 100%; padding: 0.7rem; background: #1e1e2e; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 1rem; }
+    button { background: #89b4fa; color: #1e1e2e; border: none; padding: 0.8rem 2rem; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 1rem; }
+    button:hover { background: #b4befe; }
+    #log { background: #11111b; padding: 1rem; border-radius: 8px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem; border: 1px solid #45475a; }
+    .status { display: inline-block; padding: 0.2rem 1rem; border-radius: 20px; font-weight: bold; }
+    .online { background: #a6e3a1; color: #1e1e2e; }
+    .offline { background: #f38ba8; color: #1e1e2e; }
+  </style>
 </head>
 <body>
-    <div class="glow-orb orb1"></div>
-    <div class="glow-orb orb2"></div>
 
-    <div class="container">
-        <div class="header">
-            <span class="header-icon">⚡</span>
-            <h1>NEXUS FORWARD</h1>
-        </div>
-        <div class="subtitle">✦ ADVANCED DISCORD FILE FORWARDER ✦</div>
+  <h1>🐱 CAT · Discord → Webhook</h1>
 
-        <div class="info-box">
-            💡 <strong>How it works:</strong><br>
-            Uses your Discord token to access <strong>any channel</strong> (including private).<br>
-            Files are forwarded at <strong>maximum speed</strong> with parallel processing.<br>
-            ⚡ <code>No rate limits</code> • <code>Auto-retry</code> • <code>Unlimited files</code>
-        </div>
+  <div class="card">
+    <label>🔑 Bot Token</label>
+    <input type="password" id="token" placeholder="MTE... your bot token">
 
-        <form id="forwardForm">
-            <div class="form-group">
-                <label>🎯 Target Webhook URL</label>
-                <input type="text" id="webhookUrl" placeholder="https://discord.com/api/webhooks/..." required>
-                <div class="input-hint">Where files will be forwarded to</div>
-            </div>
+    <label>📡 Channel ID</label>
+    <input type="text" id="channelId" placeholder="123456789012345678">
 
-            <div class="form-group">
-                <label>🔑 Discord Token</label>
-                <input type="text" id="userToken" placeholder="MTIzNDU2Nzg5MDEyMzQ1Njc4..." required>
-                <div class="input-hint">Your personal token (never stored) - Required for private channels</div>
-            </div>
+    <label>🔗 Webhook URL</label>
+    <input type="url" id="webhook" placeholder="https://discord.com/api/webhooks/...">
 
-            <div class="form-group">
-                <label>📁 Source Channel ID</label>
-                <input type="text" id="channelId" placeholder="123456789012345678" required>
-                <div class="input-hint">The ID of the channel to copy files from</div>
-            </div>
+    <button id="startBtn">▶ START FORWARDING</button>
+    <button id="stopBtn" style="background:#f38ba8; margin-left: 0.5rem;">⏹ STOP</button>
+    <span id="statusBadge" class="status offline" style="margin-left: 1rem;">OFFLINE</span>
+  </div>
 
-            <div class="form-group">
-                <label>📊 Message Limit <span class="optional">(optional)</span></label>
-                <input type="number" id="limit" value="1000" min="1" max="10000">
-                <div class="input-hint">Maximum messages to scan (default: 1000)</div>
-            </div>
+  <div class="card">
+    <label>📜 Live Log</label>
+    <div id="log">⏳ Ready — set config and hit Start</div>
+  </div>
 
-            <div class="form-group">
-                <label>🎨 File Types <span class="optional">(optional, comma-separated)</span></label>
-                <input type="text" id="fileTypes" placeholder=".png,.jpg,.gif,.mp4,.zip">
-                <div class="input-hint">Only forward specific file types (leave empty for all)</div>
-            </div>
+  <script>
+    // ===== CAT'S PURE BROWSER FORWARDER =====
+    const logEl = document.getElementById('log');
+    const statusBadge = document.getElementById('statusBadge');
 
-            <div class="form-group">
-                <div class="checkbox-group">
-                    <input type="checkbox" id="includeMetadata" checked>
-                    <label for="includeMetadata">Include message metadata (author, timestamp)</label>
-                    <span class="badge">INFO</span>
-                </div>
-            </div>
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logEl.innerHTML += `\n[${time}] ${msg}`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
 
-            <div class="form-group">
-                <div class="checkbox-group">
-                    <input type="checkbox" id="batchMode" checked>
-                    <label for="batchMode">⚡ Turbo Mode (Parallel processing)</label>
-                    <span class="badge">FAST</span>
-                </div>
-            </div>
+    function setStatus(online) {
+      statusBadge.textContent = online ? '● ONLINE' : '● OFFLINE';
+      statusBadge.className = 'status ' + (online ? 'online' : 'offline');
+    }
 
-            <button type="submit" id="forwardBtn">
-                ⚡ START FORWARDING
-            </button>
-        </form>
+    let ws = null;
+    let heartbeat = null;
+    let sessionId = null;
+    let lastSeq = null;
+    let forwardActive = false;
 
-        <div class="progress-container" id="progressContainer">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-stats">
-                <span id="progressText">0%</span>
-                <span class="speed-indicator" id="speedText">⚡ 0 files/s</span>
-                <span id="fileCountText">0 files</span>
-            </div>
-        </div>
+    // ===== DISCORD GATEWAY (pure WebSocket) =====
+    async function startForwarder() {
+      const token = document.getElementById('token').value.trim();
+      const channelId = document.getElementById('channelId').value.trim();
+      const webhook = document.getElementById('webhook').value.trim();
 
-        <div class="batch-info" id="batchInfo">
-            ⚡ Turbo Mode Active • Processing in parallel for maximum speed
-        </div>
+      if (!token || !channelId || !webhook) {
+        log('❌ Fill all fields first');
+        return;
+      }
 
-        <div id="status"></div>
-    </div>
+      if (forwardActive) {
+        log('⚠️ Already running — stop first');
+        return;
+      }
 
-    <script>
-        // ============================================================
-        // CONFIGURATION
-        // ============================================================
-        const form = document.getElementById('forwardForm');
-        const status = document.getElementById('status');
-        const forwardBtn = document.getElementById('forwardBtn');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        const speedText = document.getElementById('speedText');
-        const fileCountText = document.getElementById('fileCountText');
-        const batchInfo = document.getElementById('batchInfo');
+      log('🔗 Connecting to Discord Gateway...');
+      setStatus(false);
 
-        let isRunning = false;
-        let startTime = 0;
-        let fileCounter = 0;
+      try {
+        // 1. Get gateway URL
+        const gwResp = await fetch('https://discord.com/api/v10/gateway');
+        const gwData = await gwResp.json();
+        const gatewayUrl = gwData.url + '/?v=10&encoding=json';
 
-        function showStatus(message, type = 'loading') {
-            const dot = type === 'loading' ? '<span class="status-dot loading"></span>' :
-                       type === 'success' ? '<span class="status-dot success"></span>' :
-                       '<span class="status-dot error"></span>';
-            status.innerHTML = dot + message;
-            status.className = type;
-            status.style.display = 'block';
-        }
+        ws = new WebSocket(gatewayUrl);
 
-        function updateProgress(percent, files, speed) {
-            progressContainer.classList.add('active');
-            progressFill.style.width = Math.min(percent, 100) + '%';
-            progressText.textContent = Math.round(percent) + '%';
-            if (files !== undefined) fileCountText.textContent = files + ' files';
-            if (speed !== undefined) speedText.textContent = '⚡ ' + speed + ' files/s';
-        }
-
-        function setLoading(isLoading) {
-            isRunning = isLoading;
-            forwardBtn.disabled = isLoading;
-            if (isLoading) {
-                forwardBtn.innerHTML = '<span class="spinner"></span> PROCESSING...';
-                batchInfo.classList.add('active');
-                progressContainer.classList.add('active');
-                startTime = Date.now();
-                fileCounter = 0;
-            } else {
-                forwardBtn.innerHTML = '⚡ START FORWARDING';
-                batchInfo.classList.remove('active');
-                if (progressFill.style.width === '100%') {
-                    // Keep progress visible
-                }
+        ws.onopen = () => {
+          log('✅ WebSocket open — sending identify');
+          // Identify payload
+          ws.send(JSON.stringify({
+            op: 2,
+            d: {
+              token: token,
+              intents: 512, // GuildMessages
+              properties: {
+                os: 'browser',
+                browser: 'cat-forwarder',
+                device: 'cat-paw'
+              }
             }
-        }
+          }));
+        };
 
-        async function forwardFiles() {
-            if (isRunning) return;
+        ws.onmessage = (event) => {
+          const payload = JSON.parse(event.data);
+          const { op, d, t, s } = payload;
 
-            const webhookUrl = document.getElementById('webhookUrl').value.trim();
-            const userToken = document.getElementById('userToken').value.trim();
-            const channelId = document.getElementById('channelId').value.trim();
-            const limit = parseInt(document.getElementById('limit').value) || 1000;
-            const fileTypesInput = document.getElementById('fileTypes').value.trim();
-            const includeMetadata = document.getElementById('includeMetadata').checked;
-            const batchMode = document.getElementById('batchMode').checked;
+          if (s) lastSeq = s;
 
-            if (!webhookUrl) {
-                showStatus('❌ Please enter a target webhook URL', 'error');
-                return;
-            }
+          // Handle events
+          if (t === 'READY') {
+            sessionId = d.session_id;
+            log(`✅ Ready — session: ${sessionId}`);
+            setStatus(true);
+            forwardActive = true;
 
-            if (!userToken) {
-                showStatus('❌ Discord token is required for private channels', 'error');
-                return;
-            }
+            // Request channel messages (last 50)
+            ws.send(JSON.stringify({
+              op: 14,
+              d: {
+                guild_id: null,
+                channel_id: channelId,
+                limit: 50
+              }
+            }));
+            log(`📥 Fetching last 50 messages from channel...`);
+          }
 
-            if (!channelId) {
-                showStatus('❌ Please enter a source channel ID', 'error');
-                return;
-            }
-
-            const fileTypes = fileTypesInput ? fileTypesInput.split(',').map(t => t.trim().toLowerCase()) : null;
-
-            setLoading(true);
-            showStatus('🔍 Scanning channel for messages...', 'loading');
-            updateProgress(0, 0, 0);
-
-            try {
-                // ==========================================
-                // FETCH MESSAGES USING USER TOKEN
-                // ==========================================
-                const allMessages = [];
-                let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
-                let retryCount = 0;
-                
-                while (allMessages.length < limit) {
-                    const response = await fetch(url, {
-                        headers: {
-                            'Authorization': userToken
-                        }
-                    });
-
-                    if (response.status === 401) {
-                        showStatus('❌ Invalid token! Please check your Discord token.', 'error');
-                        setLoading(false);
-                        return;
-                    }
-
-                    if (response.status === 403) {
-                        showStatus(`❌ Permission Denied! Cannot view channel ${channelId}`, 'error');
-                        setLoading(false);
-                        return;
-                    }
-
-                    if (response.status === 404) {
-                        showStatus(`❌ Channel ${channelId} not found!`, 'error');
-                        setLoading(false);
-                        return;
-                    }
-
-                    if (response.status === 429) {
-                        retryCount++;
-                        const waitTime = Math.min(1000 * retryCount, 5000);
-                        showStatus(`⏳ Rate limited! Retrying in ${waitTime/1000}s...`, 'loading');
-                        await delay(waitTime);
-                        continue;
-                    }
-
-                    if (response.status !== 200) {
-                        const errorData = await response.json().catch(() => ({}));
-                        showStatus(`❌ API Error: ${response.status} - ${errorData.message || response.statusText}`, 'error');
-                        setLoading(false);
-                        return;
-                    }
-
-                    retryCount = 0;
-                    const data = await response.json();
-                    if (!data || data.length === 0) break;
-                    
-                    allMessages.push(...data);
-                    
-                    if (data.length < 100) break;
-                    
-                    const lastId = data[data.length - 1].id;
-                    url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100&before=${lastId}`;
-                    
-                    // Update progress for fetching
-                    const fetchPercent = (allMessages.length / limit) * 30;
-                    updateProgress(fetchPercent, allMessages.length, 0);
-                }
-
-                if (allMessages.length === 0) {
-                    showStatus('❌ No messages found in this channel!', 'error');
-                    setLoading(false);
-                    return;
-                }
-
-                showStatus(`📤 Found ${allMessages.length} messages. Extracting files...`, 'loading');
-                updateProgress(30, allMessages.length, 0);
-
-                // ==========================================
-                // EXTRACT ALL FILE URLs
-                // ==========================================
-                let fileData = [];
-
-                for (const msg of allMessages) {
-                    if (msg.attachments && msg.attachments.length > 0) {
-                        for (const att of msg.attachments) {
-                            const filename = att.filename;
-                            const fileSize = att.size || 0;
-
-                            // Check file type filter
-                            if (fileTypes && fileTypes.length > 0) {
-                                const ext = '.' + filename.split('.').pop().toLowerCase();
-                                const matches = fileTypes.some(t => ext === t || filename.toLowerCase().includes(t.toLowerCase()));
-                                if (!matches) continue;
-                            }
-
-                            // Skip files larger than 25MB
-                            if (fileSize > 25 * 1024 * 1024) continue;
-
-                            fileData.push({
-                                url: att.url,
-                                filename: filename,
-                                size: fileSize,
-                                author: msg.author.username,
-                                authorId: msg.author.id,
-                                timestamp: msg.timestamp
-                            });
-                        }
-                    }
-                }
-
-                if (fileData.length === 0) {
-                    showStatus('❌ No matching files found in this channel!', 'error');
-                    setLoading(false);
-                    return;
-                }
-
-                showStatus(`📦 Found ${fileData.length} files. Forwarding at maximum speed...`, 'loading');
-                updateProgress(30, 0, 0);
-
-                // ==========================================
-                // FORWARD FILES WITH PARALLEL PROCESSING
-                // ==========================================
-                let forwarded = 0;
-                let failed = 0;
-                const batchSize = batchMode ? 20 : 1;
-                let totalFiles = fileData.length;
-                let lastUpdate = Date.now();
-                let filesInLastSecond = 0;
-                let currentSpeed = 0;
-
-                for (let i = 0; i < fileData.length; i += batchSize) {
-                    const batch = fileData.slice(i, i + batchSize);
-                    
-                    // Process batch in parallel
-                    await Promise.all(batch.map(async (file) => {
-                        try {
-                            // Download file
-                            const fileBlob = await downloadFileFast(file.url);
-                            if (fileBlob) {
-                                // Send to webhook
-                                await sendToWebhookFast(webhookUrl, fileBlob, file, includeMetadata);
-                                forwarded++;
-                                fileCounter++;
-                                
-                                // Calculate speed
-                                const now = Date.now();
-                                filesInLastSecond++;
-                                if (now - lastUpdate >= 1000) {
-                                    currentSpeed = filesInLastSecond;
-                                    filesInLastSecond = 0;
-                                    lastUpdate = now;
-                                }
-                            } else {
-                                failed++;
-                            }
-                        } catch (err) {
-                            failed++;
-                        }
-                    }));
-
-                    // Update progress
-                    const percent = 30 + ((i + batch.length) / totalFiles) * 70;
-                    updateProgress(percent, forwarded, currentSpeed);
-                    
-                    const statusMsg = `⚡ Forwarding at ${currentSpeed} files/s • ${forwarded}/${totalFiles} done`;
-                    showStatus(statusMsg, 'loading');
-                    
-                    // Small delay to avoid rate limits
-                    await delay(30);
-                }
-
-                // ==========================================
-                // COMPLETE
-                // ==========================================
-                const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-                let resultMsg = `✅ **Forward Complete!**\n`;
-                resultMsg += `📎 Forwarded: ${forwarded} files\n`;
-                if (failed > 0) resultMsg += `⚠️ Failed: ${failed} files\n`;
-                resultMsg += `⚡ Speed: ${(forwarded / totalTime).toFixed(1)} files/s\n`;
-                resultMsg += `⏱️ Time: ${totalTime}s`;
-
-                showStatus(resultMsg, 'success');
-                updateProgress(100, forwarded, 0);
-                setLoading(false);
-
-            } catch (err) {
-                showStatus(`❌ Error: ${err.message}`, 'error');
-                setLoading(false);
-            }
-        }
-
-        // ============================================================
-        // FAST HELPERS
-        // ============================================================
-        async function downloadFileFast(url) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) return null;
-                return await response.blob();
-            } catch {
-                return null;
-            }
-        }
-
-        async function sendToWebhookFast(webhookUrl, blob, fileData, includeMetadata) {
-            const formData = new FormData();
-
-            if (includeMetadata) {
-                const timestamp = fileData.timestamp ? fileData.timestamp.slice(0, 19).replace('T', ' ') : '';
-                const content = `📎 **${fileData.author}** (\`${fileData.authorId}\`) [${timestamp}]\n📁 \`${fileData.filename}\``;
-                formData.append('content', content);
-            }
-
-            formData.append('file', blob, fileData.filename);
-
-            const response = await fetch(webhookUrl, {
+          if (t === 'MESSAGE_CREATE') {
+            const msg = d;
+            if (msg.channel_id === channelId && !msg.author.bot) {
+              log(`📩 Forward: ${msg.author.username}: ${msg.content || '(embed/attach)'}`);
+              // Send to webhook
+              fetch(webhook, {
                 method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Webhook error: ${response.status}`);
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  content: msg.content || '(no text)',
+                  embeds: msg.embeds || [],
+                  username: msg.author.username,
+                  avatar_url: `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png`
+                })
+              }).then(res => {
+                if (!res.ok) log(`⚠️ Webhook failed: ${res.status}`);
+                else log(`✅ Forwarded to webhook`);
+              }).catch(err => log(`❌ Webhook error: ${err.message}`));
             }
-        }
+          }
 
-        function delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
+          // Heartbeat
+          if (op === 10) {
+            const interval = d.heartbeat_interval;
+            if (heartbeat) clearInterval(heartbeat);
+            heartbeat = setInterval(() => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ op: 1, d: lastSeq || null }));
+              }
+            }, interval);
+            log(`💓 Heartbeat set (${interval}ms)`);
+          }
+        };
 
-        // ============================================================
-        // FORM HANDLER
-        // ============================================================
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await forwardFiles();
-        });
+        ws.onerror = (err) => {
+          log(`❌ WS error: ${err.message}`);
+          setStatus(false);
+          forwardActive = false;
+        };
 
-        // Load saved values
-        ['webhookUrl', 'userToken', 'channelId'].forEach(id => {
-            const el = document.getElementById(id);
-            const saved = localStorage.getItem('nexus_' + id);
-            if (saved) el.value = saved;
-            el.addEventListener('change', () => {
-                localStorage.setItem('nexus_' + id, el.value);
-            });
-        });
-    </script>
+        ws.onclose = () => {
+          log('🔌 Disconnected');
+          setStatus(false);
+          forwardActive = false;
+          if (heartbeat) clearInterval(heartbeat);
+        };
+
+      } catch (err) {
+        log(`❌ Init error: ${err.message}`);
+        setStatus(false);
+      }
+    }
+
+    function stopForwarder() {
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      if (heartbeat) {
+        clearInterval(heartbeat);
+        heartbeat = null;
+      }
+      forwardActive = false;
+      setStatus(false);
+      log('⏹ Stopped');
+    }
+
+    // ===== UI BINDINGS =====
+    document.getElementById('startBtn').addEventListener('click', startForwarder);
+    document.getElementById('stopBtn').addEventListener('click', stopForwarder);
+
+    log('🐱 CAT loaded — enter token, channel ID, webhook, then Start');
+  </script>
 </body>
 </html>
