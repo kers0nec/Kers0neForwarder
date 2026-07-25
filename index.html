@@ -1,278 +1,544 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kers0ne File Forwarder</title>
-<style>
-:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2430;--line:#2a3441;--txt:#e6edf3;--mut:#8b98a5;--acc:#4f8cff;--ok:#56d364;--err:#ff7b72;--warn:#e3b341}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,"Segoe UI",sans-serif}
-header{padding:18px 24px;border-bottom:1px solid var(--line)}
-h1{font-size:18px;margin:0}
-header p{margin:2px 0 0;color:var(--mut);font-size:12px}
-main{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px;margin:0 auto;padding:20px 24px}
-@media(max-width:900px){main{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
-h2{font-size:15px;margin:0 0 12px}
-label{display:block;margin:14px 0 6px;font-size:12px;font-weight:600}
-label small{font-weight:400;color:var(--mut)}
-input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font:inherit;outline:none}
-input:focus,select:focus{border-color:var(--acc)}
-select[multiple]{padding:4px}
-.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-button{border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:8px 13px;border-radius:8px;cursor:pointer;font:inherit}
-button:hover{border-color:var(--acc)}
-button:disabled{opacity:.5;cursor:not-allowed}
-#sendBtn{width:100%;margin-top:18px;padding:13px;font-size:15px;font-weight:600;background:linear-gradient(135deg,var(--acc),#6d5cff);border:none}
-.drop{border:2px dashed var(--line);border-radius:10px;padding:20px;text-align:center;color:var(--mut);margin-top:6px}
-.drop.over{border-color:var(--acc);background:rgba(79,140,255,.08)}
-ul{list-style:none;margin:8px 0 0;padding:0;max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:8px}
-li{display:flex;gap:8px;align-items:center;padding:8px 11px;border-bottom:1px solid var(--line);font-size:13px}
-li:last-child{border-bottom:none}
-li.empty,li.skip{color:var(--mut)}
-li.skip{background:rgba(210,153,34,.07)}
-.nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip{background:rgba(79,140,255,.15);color:#9dc0ff;border-radius:999px;padding:2px 8px;font-size:11px}
-.chip.w{background:rgba(210,153,34,.15);color:var(--warn)}
-.x{background:none;border:none;color:var(--mut);font-size:16px;padding:0 4px}
-.checks{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--mut)}
-.checks label{display:flex;gap:6px;align-items:center;margin:0;font-weight:400}
-.checks input{width:auto}
-.bar{display:flex;gap:8px;align-items:center;margin:10px 0}
-.pill{font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
-.pill.o{color:var(--ok)}.pill.e{color:var(--err)}.pill.s{color:var(--warn)}
-.bar button{margin-left:auto;font-size:12px;padding:5px 10px}
-#log{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;height:210px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:12px}
-.ln{padding:2px 0;white-space:pre-wrap;word-break:break-word}
-.ts{color:#5b6674;margin-right:8px}
-.ok{color:var(--ok)}.err{color:var(--err)}.warn{color:var(--warn)}.info{color:#9dc0ff}.mut{color:var(--mut)}
-footer{text-align:center;color:var(--mut);font-size:12px;padding:20px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord File Forwarder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #36393f;
+            color: #dcddde;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #2f3136;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subtitle {
+            color: #b9bbbe;
+            font-size: 14px;
+            margin-bottom: 30px;
+            border-left: 3px solid #5865f2;
+            padding-left: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #b9bbbe;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        label .optional {
+            color: #72767d;
+            font-weight: 400;
+            text-transform: none;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: #202225;
+            border: 1px solid #3a3c42;
+            border-radius: 8px;
+            color: #dcddde;
+            font-size: 15px;
+            transition: border-color 0.2s;
+            outline: none;
+            font-family: inherit;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: #5865f2;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: #72767d;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .input-hint {
+            font-size: 12px;
+            color: #72767d;
+            margin-top: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #202225;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #3a3c42;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #5865f2;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            text-transform: none;
+            font-weight: 400;
+            cursor: pointer;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #5865f2;
+            border: none;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            background: #4752c4;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        #status.loading {
+            display: block;
+            background: #1e2126;
+            border-left: 4px solid #5865f2;
+            color: #b9bbbe;
+        }
+
+        #status.success {
+            display: block;
+            background: #1e2126;
+            border-left: 4px solid #3ba55d;
+            color: #b9bbbe;
+        }
+
+        #status.error {
+            display: block;
+            background: #1e2126;
+            border-left: 4px solid #ed4245;
+            color: #b9bbbe;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .stats span {
+            color: #72767d;
+        }
+
+        .stats strong {
+            color: #dcddde;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .webhook-section {
+            background: #1e2126;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3a3c42;
+        }
+
+        .webhook-section .hint {
+            font-size: 13px;
+            color: #b9bbbe;
+        }
+
+        .webhook-section .url-display {
+            background: #202225;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #dcddde;
+            margin-top: 8px;
+            word-break: break-all;
+        }
+    </style>
 </head>
 <body>
-<header>
-  <h1>Kers0ne File Forwarder</h1>
-  <p>Select sources → attach files → press Send. Files only; text messages are ignored.</p>
-</header>
+    <div class="container">
+        <h1>📤 File Forwarder</h1>
+        <div class="subtitle">Forward files from any Discord channel to a webhook</div>
 
-<main>
-  <section class="card">
-    <h2>1 · Source Selection</h2>
-    <div class="row">
-      <input id="chName" placeholder="New source channel name" style="flex:1;min-width:160px">
-      <button id="addCh">+ Add</button>
+        <div class="webhook-section">
+            <div class="hint">📌 Target Webhook</div>
+            <div class="url-display" id="webhookDisplay">https://discord.com/api/webhooks/...</div>
+        </div>
+
+        <form id="forwardForm">
+            <div class="form-group">
+                <label>Source Channel ID</label>
+                <input type="text" id="channelId" placeholder="123456789012345678" required>
+                <div class="input-hint">The ID of the channel to copy files from</div>
+            </div>
+
+            <div class="form-group">
+                <label>Bot Token</label>
+                <input type="text" id="botToken" placeholder="MTIzNDU2Nzg5MDEyMzQ1Njc4...">
+                <div class="input-hint">Required to fetch messages from the source channel</div>
+            </div>
+
+            <div class="form-group">
+                <label>Limit <span class="optional">(optional)</span></label>
+                <input type="number" id="limit" value="100" min="1" max="1000">
+                <div class="input-hint">Maximum files to forward (default: 100)</div>
+            </div>
+
+            <div class="form-group">
+                <label>File Types <span class="optional">(optional, comma-separated)</span></label>
+                <input type="text" id="fileTypes" placeholder=".png,.jpg,.gif,.mp4,.zip">
+                <div class="input-hint">Only forward specific file types (leave empty for all)</div>
+            </div>
+
+            <div class="form-group">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="includeMetadata" checked>
+                    <label for="includeMetadata">Include message metadata (author, timestamp)</label>
+                </div>
+            </div>
+
+            <button type="submit" id="forwardBtn">
+                📤 Forward Files
+            </button>
+        </form>
+
+        <div id="status"></div>
     </div>
 
-    <label for="chSel">Source channel(s) <small>— ctrl/cmd-click for multiple</small></label>
-    <select id="chSel" multiple size="5"></select>
-    <div class="row">
-      <button id="allCh">Select all</button>
-      <button id="delCh">Delete selected</button>
-    </div>
+    <script>
+        // ============================================================
+        // CONFIGURATION
+        // ============================================================
+        // 🔴 SET YOUR WEBHOOK URL HERE:
+        const WEBHOOK_URL = "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN";
 
-    <label>Attach files to selected channel(s)</label>
-    <div class="drop" id="drop">
-      <input type="file" id="file" multiple hidden>
-      <div>Drop files here or <button id="browse" style="border:none;background:none;color:var(--acc);text-decoration:underline;padding:0">browse</button></div>
-    </div>
+        // ============================================================
+        // CORE LOGIC
+        // ============================================================
+        const webhookDisplay = document.getElementById('webhookDisplay');
+        webhookDisplay.textContent = WEBHOOK_URL;
 
-    <div class="row">
-      <input id="msg" placeholder="Text-only message (will be ignored)" style="flex:1;min-width:160px">
-      <button id="addMsg">Add message</button>
-    </div>
+        const form = document.getElementById('forwardForm');
+        const status = document.getElementById('status');
+        const forwardBtn = document.getElementById('forwardBtn');
 
-    <label>Queue <small id="qmeta"></small></label>
-    <ul id="list"><li class="empty">Nothing queued yet.</li></ul>
-    <div class="row"><button id="clearQ">Clear queue</button></div>
-  </section>
+        function showStatus(message, type = 'loading') {
+            status.textContent = message;
+            status.className = type;
+            status.style.display = 'block';
+        }
 
-  <section class="card">
-    <h2>2 · Webhook &amp; Target</h2>
+        function hideStatus() {
+            status.style.display = 'none';
+        }
 
-    <label for="hook">Webhook URL <small>— payload is POSTed here</small></label>
-    <input type="url" id="hook" placeholder="https://your.endpoint/webhook">
+        function setLoading(isLoading) {
+            forwardBtn.disabled = isLoading;
+            if (isLoading) {
+                forwardBtn.innerHTML = '<span class="spinner"></span> Forwarding...';
+            } else {
+                forwardBtn.innerHTML = '📤 Forward Files';
+            }
+        }
 
-    <label for="tmode">Target destination type</label>
-    <select id="tmode">
-      <option value="channel_id">Source / Target Channel ID</option>
-      <option value="webhook">Target Webhook URL</option>
-    </select>
+        async function forwardFiles() {
+            const channelId = document.getElementById('channelId').value.trim();
+            const botToken = document.getElementById('botToken').value.trim();
+            const limit = parseInt(document.getElementById('limit').value) || 100;
+            const fileTypesInput = document.getElementById('fileTypes').value.trim();
+            const includeMetadata = document.getElementById('includeMetadata').checked;
 
-    <label for="tval">Target destination value</label>
-    <input id="tval" placeholder="e.g. 1024856913247129600">
+            if (!channelId) {
+                showStatus('❌ Please enter a source channel ID', 'error');
+                return;
+            }
 
-    <label for="pmode">Payload format</label>
-    <select id="pmode">
-      <option value="multipart">multipart/form-data (real upload)</option>
-      <option value="json">application/json (base64)</option>
-    </select>
+            if (!botToken) {
+                showStatus('❌ Bot token is required to fetch messages', 'error');
+                return;
+            }
 
-    <label for="foot">Footer on every file</label>
-    <input id="foot" value="Copied By Kers0ne Webhook">
+            const fileTypes = fileTypesInput ? fileTypesInput.split(',').map(t => t.trim().toLowerCase()) : null;
 
-    <div class="checks">
-      <label><input type="checkbox" id="perFile" checked> One request per file</label>
-      <label><input type="checkbox" id="dry"> Dry run (no POST)</label>
-    </div>
+            setLoading(true);
+            showStatus('📤 Fetching messages from channel...', 'loading');
 
-    <button id="sendBtn">🚀 Send Files</button>
+            try {
+                // ==========================================
+                // FETCH MESSAGES USING BOT TOKEN
+                // ==========================================
+                const allMessages = [];
+                let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
+                
+                while (allMessages.length < limit) {
+                    const response = await fetch(url, {
+                        headers: {
+                            'Authorization': `Bot ${botToken}`
+                        }
+                    });
 
-    <h2 style="margin-top:22px">3 · Status Log</h2>
-    <div class="bar">
-      <span class="pill o" id="cOk">0 success</span>
-      <span class="pill e" id="cErr">0 failed</span>
-      <span class="pill s" id="cSkip">0 skipped</span>
-      <button id="clearLog">Clear</button>
-    </div>
-    <div id="log"><div class="ln mut">Log empty. Configure a webhook and press Send Files.</div></div>
-  </section>
-</main>
+                    if (response.status === 403) {
+                        showStatus(`❌ Permission Denied! Bot cannot view channel ${channelId}`, 'error');
+                        setLoading(false);
+                        return;
+                    }
 
-<footer>Copied By Kers0ne Webhook</footer>
+                    if (response.status === 404) {
+                        showStatus(`❌ Channel ${channelId} not found!`, 'error');
+                        setLoading(false);
+                        return;
+                    }
 
-<script>
-const $=id=>document.getElementById(id);
-let channels=[], queue=[], counts={ok:0,err:0,skip:0}, uid=0;
+                    if (response.status !== 200) {
+                        showStatus(`❌ API Error: ${response.status} - ${response.statusText}`, 'error');
+                        setLoading(false);
+                        return;
+                    }
 
-/* ---------- channels ---------- */
-function drawCh(){
-  const sel=$('chSel'), keep=new Set([...sel.selectedOptions].map(o=>o.value));
-  sel.innerHTML='';
-  channels.forEach(c=>{
-    const o=document.createElement('option');
-    o.value=c; o.textContent=c;
-    if(keep.has(c))o.selected=true;
-    sel.appendChild(o);
-  });
-}
-function selected(){return [...$('chSel').selectedOptions].map(o=>o.value);}
-$('addCh').onclick=()=>{
-  const v=$('chName').value.trim();
-  if(!v)return log('warn','Channel name is empty.');
-  if(channels.includes(v))return log('warn','Channel already exists: '+v);
-  channels.push(v); $('chName').value=''; drawCh(); log('info','Added source channel: '+v);
-};
-$('chName').addEventListener('keydown',e=>{if(e.key==='Enter')$('addCh').click();});
-$('allCh').onclick=()=>{[...$('chSel').options].forEach(o=>o.selected=true);};
-$('delCh').onclick=()=>{
-  const s=selected(); if(!s.length)return log('warn','No channel selected.');
-  channels=channels.filter(c=>!s.includes(c));
-  queue=queue.filter(i=>!s.includes(i.channel));
-  drawCh(); drawQ(); log('info','Deleted channel(s): '+s.join(', '));
-};
+                    const data = await response.json();
+                    if (!data || data.length === 0) break;
+                    
+                    allMessages.push(...data);
+                    
+                    if (data.length < 100) break;
+                    
+                    const lastId = data[data.length - 1].id;
+                    url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100&before=${lastId}`;
+                    
+                    await delay(50);
+                }
 
-/* ---------- queue ---------- */
-function addFiles(files){
-  const chs=selected();
-  if(!chs.length)return log('err','Select at least one source channel before attaching files.');
-  if(!files.length)return;
-  [...files].forEach(f=>chs.forEach(c=>queue.push({id:++uid,type:'file',file:f,name:f.name,size:f.size,channel:c})));
-  drawQ(); log('info',`Queued ${files.length} file(s) → ${chs.join(', ')}`);
-}
-$('browse').onclick=()=>$('file').click();
-$('file').onchange=e=>{addFiles(e.target.files);e.target.value='';};
-['dragenter','dragover'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.add('over');}));
-['dragleave','drop'].forEach(ev=>$('drop').addEventListener(ev,e=>{e.preventDefault();$('drop').classList.remove('over');}));
-$('drop').addEventListener('drop',e=>addFiles(e.dataTransfer.files));
-$('addMsg').onclick=()=>{
-  const t=$('msg').value.trim(); if(!t)return;
-  const chs=selected(); if(!chs.length)return log('err','Select a source channel first.');
-  chs.forEach(c=>queue.push({id:++uid,type:'text',name:t,channel:c}));
-  $('msg').value=''; drawQ(); log('warn','Text-only message queued — it will be ignored on send.');
-};
-$('clearQ').onclick=()=>{queue=[];drawQ();log('info','Queue cleared.');};
+                if (allMessages.length === 0) {
+                    showStatus('❌ No messages found in this channel!', 'error');
+                    setLoading(false);
+                    return;
+                }
 
-function drawQ(){
-  const ul=$('list'); ul.innerHTML='';
-  const nf=queue.filter(i=>i.type==='file').length;
-  $('qmeta').textContent=queue.length?`— ${nf} file(s), ${queue.length-nf} ignored`:'';
-  if(!queue.length){ul.innerHTML='<li class="empty">Nothing queued yet.</li>';return;}
-  queue.forEach(i=>{
-    const li=document.createElement('li');
-    if(i.type==='text')li.className='skip';
-    li.innerHTML=`<span class="chip${i.type==='text'?' w':''}">${i.channel}</span>
-      <span class="nm">${i.type==='file'?'📎 ':'💬 '}${esc(i.name)}</span>
-      <span style="color:var(--mut);font-size:11px">${i.type==='file'?fmt(i.size):'text — ignored'}</span>`;
-    const b=document.createElement('button'); b.className='x'; b.textContent='×';
-    b.onclick=()=>{queue=queue.filter(q=>q.id!==i.id);drawQ();};
-    li.appendChild(b); ul.appendChild(li);
-  });
-}
-const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const fmt=b=>b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(2)+' MB';
+                showStatus(`📤 Found ${allMessages.length} messages. Processing files...`, 'loading');
 
-/* ---------- logging ---------- */
-function log(kind,msg){
-  const box=$('log');
-  if(box.querySelector('.mut'))box.innerHTML='';
-  const d=document.createElement('div');
-  d.className='ln '+kind;
-  d.innerHTML=`<span class="ts">${new Date().toLocaleTimeString()}</span>${esc(msg)}`;
-  box.appendChild(d); box.scrollTop=box.scrollHeight;
-}
-function bump(k){counts[k]++;$('cOk').textContent=counts.ok+' success';$('cErr').textContent=counts.err+' failed';$('cSkip').textContent=counts.skip+' skipped';}
-$('clearLog').onclick=()=>{$('log').innerHTML='<div class="ln mut">Log empty.</div>';counts={ok:0,err:0,skip:0};bump('ok');counts.ok=0;$('cOk').textContent='0 success';};
+                // ==========================================
+                // PROCESS AND FORWARD FILES TO WEBHOOK
+                // ==========================================
+                let fileCount = 0;
+                let skippedCount = 0;
+                const errors = [];
 
-const b64=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+                for (const msg of allMessages) {
+                    const attachments = msg.attachments || [];
+                    if (attachments.length === 0) continue;
 
-/* ---------- send ---------- */
-$('sendBtn').onclick=async()=>{
-  const hook=$('hook').value.trim(), tval=$('tval').value.trim(), tmode=$('tmode').value;
-  const footer=$('foot').value, pmode=$('pmode').value, dry=$('dry').checked, per=$('perFile').checked;
-  const chs=selected();
+                    let header = '';
+                    if (includeMetadata) {
+                        const authorName = msg.author.username;
+                        const authorId = msg.author.id;
+                        const timestamp = msg.timestamp ? msg.timestamp.slice(0, 19) : '';
+                        header = `📎 **${authorName}** (\`${authorId}\`) [${timestamp}]\n`;
+                    }
 
-  if(!hook&&!dry)return log('err','Webhook URL is required.');
-  if(!chs.length)return log('err','No source channel selected.');
-  if(!tval)return log('err','Target destination is required.');
+                    for (const att of attachments) {
+                        const filename = att.filename;
+                        const fileUrl = att.url;
+                        const fileSize = att.size || 0;
 
-  const skipped=queue.filter(i=>chs.includes(i.channel)&&i.type==='text');
-  skipped.forEach(i=>{bump('skip');log('warn','Skipped text-only message: "'+i.name+'"');});
+                        // Check file type filter
+                        if (fileTypes) {
+                            const ext = '.' + filename.split('.').pop().toLowerCase();
+                            if (!fileTypes.some(t => ext === t || filename.toLowerCase().includes(t.toLowerCase()))) {
+                                continue;
+                            }
+                        }
 
-  const files=queue.filter(i=>chs.includes(i.channel)&&i.type==='file');
-  if(!files.length)return log('err','No files to forward for the selected channel(s).');
+                        // Skip files larger than 25MB
+                        if (fileSize > 25 * 1024 * 1024) {
+                            skippedCount++;
+                            continue;
+                        }
 
-  $('sendBtn').disabled=true;
-  log('info',`Forwarding ${files.length} file(s) from [${chs.join(', ')}] → ${tmode}:${tval}${dry?' (dry run)':''}`);
+                        try {
+                            // Download the file
+                            const fileData = await downloadFile(fileUrl);
 
-  const batches = per ? files.map(f=>[f]) : [files];
-  for(const batch of batches){
-    const meta={
-      source_channels:[...new Set(batch.map(f=>f.channel))],
-      target:{type:tmode,value:tval},
-      footer, sent_at:new Date().toISOString(),
-      files:batch.map(f=>({filename:f.name,size:f.size,mime:f.file.type||'application/octet-stream',source_channel:f.channel}))
-    };
-    const label=batch.map(f=>f.name).join(', ');
-    try{
-      let opts;
-      if(pmode==='json'){
-        const withData=await Promise.all(batch.map(async f=>({
-          filename:f.name,size:f.size,mime:f.file.type||'application/octet-stream',
-          source_channel:f.channel,content_base64:await b64(f.file)})));
-        opts={method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({...meta,files:withData,content:footer})};
-      }else{
-        const fd=new FormData();
-        fd.append('payload_json',JSON.stringify({...meta,content:footer}));
-        batch.forEach((f,i)=>fd.append('files['+i+']',f.file,f.name));
-        fd.append('content',footer);
-        opts={method:'POST',body:fd};
-      }
-      if(dry){log('ok','DRY RUN ok — payload built for: '+label);bump('ok');continue;}
-      const r=await fetch(hook,opts);
-      if(r.ok||r.status===204){log('ok',`✔ Sent ${label} — HTTP ${r.status} · footer: "${footer}"`);bump('ok');}
-      else{log('err',`✖ Failed ${label} — HTTP ${r.status} ${r.statusText}`);bump('err');}
-    }catch(e){
-      log('err',`✖ Failed ${label} — ${e.message} (check URL / CORS)`);bump('err');
-    }
-  }
-  $('sendBtn').disabled=false;
-  log('info','Send complete.');
-};
+                            if (fileData) {
+                                // Send to webhook
+                                await sendToWebhook(fileData, filename, header);
+                                fileCount++;
+                                await delay(100);
+                            } else {
+                                errors.push(`Failed to download: ${filename}`);
+                            }
+                        } catch (err) {
+                            errors.push(`Error processing ${filename}: ${err.message}`);
+                        }
+                    }
+                }
 
-/* seed */
-channels=['#general-uploads','#design-drops'];drawCh();
-</script>
+                // ==========================================
+                // COMPLETE
+                // ==========================================
+                let resultMsg = `✅ **Forward Complete!**\n`;
+                resultMsg += `📎 Forwarded: ${fileCount} files\n`;
+                if (skippedCount > 0) resultMsg += `⚠️ Skipped (too large): ${skippedCount}\n`;
+                if (errors.length > 0) {
+                    resultMsg += `\n⚠️ Errors:\n${errors.slice(0, 5).join('\n')}`;
+                    if (errors.length > 5) resultMsg += `\n... and ${errors.length - 5} more`;
+                }
+
+                showStatus(resultMsg, 'success');
+                setLoading(false);
+
+            } catch (err) {
+                showStatus(`❌ Error: ${err.message}`, 'error');
+                setLoading(false);
+            }
+        }
+
+        // ============================================================
+        // HELPERS
+        // ============================================================
+        async function downloadFile(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) return null;
+                const blob = await response.blob();
+                const buffer = await blob.arrayBuffer();
+                return new Uint8Array(buffer);
+            } catch {
+                return null;
+            }
+        }
+
+        async function sendToWebhook(fileData, filename, header) {
+            const formData = new FormData();
+
+            if (header) {
+                const content = header + `📁 \`${filename}\``;
+                formData.append('content', content);
+            }
+
+            const blob = new Blob([fileData]);
+            formData.append('file', blob, filename);
+
+            const response = await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`Webhook error: ${response.status}`);
+            }
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // ============================================================
+        // FORM HANDLER
+        // ============================================================
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await forwardFiles();
+        });
+
+        // Validate webhook URL on load
+        if (WEBHOOK_URL.includes('YOUR_WEBHOOK_ID') || WEBHOOK_URL.includes('YOUR_WEBHOOK_TOKEN')) {
+            showStatus('⚠️ Please configure your webhook URL in the script (line ~115)', 'error');
+        } else {
+            hideStatus();
+        }
+    </script>
 </body>
 </html>
