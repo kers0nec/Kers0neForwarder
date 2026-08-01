@@ -3,289 +3,1178 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CAT · Forced Channel Reader</title>
+  <title>Kers0ne Forwarder</title>
   <style>
-    * { box-sizing: border-box; font-family: 'Courier New', monospace; }
-    body { background: #1e1e2e; color: #cdd6f4; padding: 2rem; max-width: 900px; margin: auto; }
-    .card { background: #313244; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; }
-    label { display: block; margin: 0.8rem 0 0.3rem; color: #a6e3a1; }
-    input { width: 100%; padding: 0.7rem; background: #1e1e2e; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; }
-    button { background: #89b4fa; color: #1e1e2e; border: none; padding: 0.8rem 2rem; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 0.3rem; }
-    .danger { background: #f38ba8; }
-    #log { background: #11111b; padding: 1rem; border-radius: 8px; max-height: 350px; overflow-y: auto; white-space: pre-wrap; font-size: 0.9rem; }
-    .status { display: inline-block; padding: 0.2rem 1rem; border-radius: 20px; }
-    .online { background: #a6e3a1; color: #1e1e2e; }
-    .offline { background: #f38ba8; color: #1e1e2e; }
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    :root {
+      --bg-primary: #000000;
+      --bg-secondary: #0a0a0a;
+      --bg-card: #111111;
+      --bg-input: #0d0d0d;
+      --bg-hover: #1a1a1a;
+      --border: #222222;
+      --border-light: #333333;
+      --text-primary: #ffffff;
+      --text-secondary: #aaaaaa;
+      --text-muted: #666666;
+      --accent: #ffffff;
+      --accent-dim: #cccccc;
+      --success: #ffffff;
+      --danger: #888888;
+      --glow: rgba(255,255,255,0.06);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #fff, transparent);
+    }
+
+    .logo {
+      font-size: 2.8rem;
+      font-weight: 900;
+      letter-spacing: -2px;
+      background: linear-gradient(180deg, #ffffff 0%, #888888 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.3rem;
+    }
+
+    .logo-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    /* ===== TABS ===== */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 2rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--bg-secondary);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      letter-spacing: 0.5px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-secondary);
+      background: var(--bg-hover);
+    }
+
+    .tab-btn.active {
+      color: var(--text-primary);
+      background: var(--bg-card);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 20%;
+      width: 60%;
+      height: 2px;
+      background: #fff;
+      border-radius: 2px;
+    }
+
+    .tab-btn .tab-icon {
+      margin-right: 0.5rem;
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: var(--border-light);
+    }
+
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--text-muted);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: #fff;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* ===== FORM ELEMENTS ===== */
+    .field-group {
+      margin-bottom: 1.2rem;
+    }
+
+    .field-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.5px;
+    }
+
+    label .label-hint {
+      font-weight: 400;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      transition: all 0.3s ease;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: #555;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn-row {
+      display: flex;
+      gap: 0.8rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.8rem 2rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .btn-primary {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: #e0e0e0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(255,255,255,0.15);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: var(--border-light);
+    }
+
+    .btn-danger:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: #555;
+    }
+
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ===== STATUS BAR ===== */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-top: 1.2rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #444;
+      transition: all 0.3s ease;
+    }
+
+    .status-dot.online {
+      background: #fff;
+      box-shadow: 0 0 10px rgba(255,255,255,0.5);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 5px rgba(255,255,255,0.3); }
+      50% { box-shadow: 0 0 15px rgba(255,255,255,0.6); }
+    }
+
+    .stat-item {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .stat-item span {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    /* ===== LOG ===== */
+    .log-container {
+      background: #050505;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem 1.2rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-header span {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+    }
+
+    .log-clear {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: color 0.2s;
+    }
+
+    .log-clear:hover {
+      color: var(--text-primary);
+    }
+
+    #log {
+      padding: 1rem 1.2rem;
+      max-height: 380px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      line-height: 1.8;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    #log::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #log::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #log::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 4px;
+    }
+
+    .log-time {
+      color: #444;
+    }
+
+    .log-success { color: #ccc; }
+    .log-error { color: #999; }
+    .log-info { color: #777; }
+
+    /* ===== LOADSTRING GRABBER SPECIFIC ===== */
+    .ls-preview {
+      background: #050505;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+
+    .ls-preview.visible {
+      display: block;
+    }
+
+    .ls-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    .ls-count span {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* ===== INFO BOX ===== */
+    .info-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-left: 3px solid #444;
+      border-radius: 0 10px 10px 0;
+      padding: 1rem 1.2rem;
+      margin-top: 1.2rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    .info-box strong {
+      color: var(--text-secondary);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 640px) {
+      .container { padding: 1rem; }
+      .logo { font-size: 2rem; }
+      .btn-row { flex-direction: column; }
+      .btn { width: 100%; text-align: center; }
+      .status-bar { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
+      .tabs { flex-direction: column; }
+      .tab-btn.active::after { display: none; }
+    }
+
+    /* ===== SCANLINE EFFECT ===== */
+    .scanline {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+      animation: scanline 4s linear infinite;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    @keyframes scanline {
+      0% { top: -2px; }
+      100% { top: 100vh; }
+    }
   </style>
 </head>
 <body>
-  <h1>🐱 CAT · Forced Channel Reader</h1>
-  <div class="card">
-    <label>📡 Channel ID or Invite Link</label>
-    <input type="text" id="channelInput" placeholder="https://discord.gg/xxx or 123456789">
-    <label>🔗 Webhook URL</label>
-    <input type="url" id="webhook" placeholder="https://discord.com/api/webhooks/...">
-    <button id="startBtn">▶ FORCE READ</button>
-    <button id="stopBtn" class="danger">⏹ STOP</button>
-    <span id="statusBadge" class="status offline">OFFLINE</span>
-    <span id="fileCount" style="margin-left: 1rem; color: #a6e3a1;">📄 0 files</span>
-  </div>
-  <div class="card">
-    <label>📜 Live Log</label>
-    <div id="log">⏳ Ready — paste channel link or ID, then Force Read</div>
+  <div class="scanline"></div>
+
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="logo">KERS0NE</div>
+      <div class="logo-sub">Forwarder System</div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="forwarder">
+        <span class="tab-icon">◈</span> Channel Forwarder
+      </button>
+      <button class="tab-btn" data-tab="loadstring">
+        <span class="tab-icon">⌘</span> Loadstring Grabber
+      </button>
+    </div>
+
+    <!-- ==================== TAB 1: FORWARDER ==================== -->
+    <div class="tab-content active" id="tab-forwarder">
+      <div class="card">
+        <div class="card-title">Source Configuration</div>
+
+        <div class="field-group">
+          <label>Bot Token <span class="label-hint">— required for API access</span></label>
+          <input type="password" id="botToken" placeholder="MTIzNDU2Nzg5...">
+        </div>
+
+        <div class="field-group">
+          <label>Source Channel ID <span class="label-hint">— the channel to read from</span></label>
+          <input type="text" id="channelInput" placeholder="1234567890123456789">
+        </div>
+
+        <div class="field-group">
+          <label>Destination Webhook URL <span class="label-hint">— where files get forwarded</span></label>
+          <input type="url" id="webhook" placeholder="https://discord.com/api/webhooks/...">
+        </div>
+
+        <div class="field-group">
+          <label>Scan Interval <span class="label-hint">— seconds between scans</span></label>
+          <input type="number" id="scanInterval" value="15" min="5" max="120" style="width:120px;">
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="startBtn">▶ Start Forwarding</button>
+          <button class="btn btn-danger" id="stopBtn" disabled>■ Stop</button>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">OFFLINE</span>
+          </div>
+          <div class="stat-item">Files: <span id="fileCount">0</span></div>
+          <div class="stat-item">Scans: <span id="scanCount">0</span></div>
+          <div class="stat-item">Errors: <span id="errorCount">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="log-container">
+          <div class="log-header">
+            <span>Live Output</span>
+            <button class="log-clear" id="clearLog1">Clear</button>
+          </div>
+          <div id="log">[SYS] Kers0ne Forwarder initialized.\n[SYS] Awaiting configuration...</div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>How it works:</strong> Enter your bot token (the bot must be in the source server),
+        the channel ID to monitor, and a webhook URL. The forwarder polls the channel for new
+        messages containing <strong>.txt files</strong> or <strong>images</strong> and forwards
+        them to your webhook. Enable Developer Mode in Discord → right-click channel → Copy ID.
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: LOADSTRING GRABBER ==================== -->
+    <div class="tab-content" id="tab-loadstring">
+      <div class="card">
+        <div class="card-title">Loadstring Grabber</div>
+
+        <div class="field-group">
+          <label>Bot Token <span class="label-hint">— required for API access</span></label>
+          <input type="password" id="lsBotToken" placeholder="MTIzNDU2Nzg5...">
+        </div>
+
+        <div class="field-group">
+          <label>Source Channel ID <span class="label-hint">— channel containing loadstrings</span></label>
+          <input type="text" id="lsChannelInput" placeholder="1234567890123456789">
+        </div>
+
+        <div class="field-group">
+          <label>Destination Webhook URL <span class="label-hint">— where loadstrings get sent</span></label>
+          <input type="url" id="lsWebhook" placeholder="https://discord.com/api/webhooks/...">
+        </div>
+
+        <div class="field-group">
+          <label>Filter Keyword <span class="label-hint">— only grab messages containing this (optional)</span></label>
+          <input type="text" id="lsFilter" placeholder="loadstring, game, https://">
+        </div>
+
+        <div class="field-group">
+          <label>Scan Interval <span class="label-hint">— seconds</span></label>
+          <input type="number" id="lsScanInterval" value="15" min="5" max="120" style="width:120px;">
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="lsStartBtn">▶ Start Grabbing</button>
+          <button class="btn btn-danger" id="lsStopBtn" disabled>■ Stop</button>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-indicator">
+            <div class="status-dot" id="lsStatusDot"></div>
+            <span id="lsStatusText">OFFLINE</span>
+          </div>
+          <div class="stat-item">Grabbed: <span id="lsCount">0</span></div>
+          <div class="stat-item">Scans: <span id="lsScanCount">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Grabbed Loadstrings</div>
+        <div class="ls-preview" id="lsPreview">No loadstrings grabbed yet.</div>
+        <div class="ls-count">Total grabbed: <span id="lsTotalCount">0</span></div>
+      </div>
+
+      <div class="card">
+        <div class="log-container">
+          <div class="log-header">
+            <span>Grabber Output</span>
+            <button class="log-clear" id="clearLog2">Clear</button>
+          </div>
+          <div id="lsLog">[SYS] Loadstring Grabber initialized.\n[SYS] Awaiting configuration...</div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <strong>How it works:</strong> Monitors a channel for messages containing loadstrings
+        (e.g. <strong>loadstring(game:HttpGet(...))</strong> or any keyword you filter for).
+        Found loadstrings are forwarded to your webhook and displayed in the preview panel.
+        Separate multiple filter keywords with commas.
+      </div>
+    </div>
   </div>
 
   <script>
-    // ===== FORCED READ — USES PUBLIC PROXY + INVITE PARSING =====
-    const logEl = document.getElementById('log');
-    const statusBadge = document.getElementById('statusBadge');
-    const fileCountEl = document.getElementById('fileCount');
-    
-    let scanInterval = null;
-    let forwardActive = false;
-    let fileCounter = 0;
-    let lastMessageId = null;
-    let currentChannelId = '';
+    // ============================================================
+    //  KERS0NE FORWARDER — CORE ENGINE
+    // ============================================================
 
-    function log(msg) {
-      const time = new Date().toLocaleTimeString();
-      logEl.innerHTML += `\n[${time}] ${msg}`;
-      logEl.scrollTop = logEl.scrollHeight;
+    // ===== TAB SWITCHING =====
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ===== UTILITY =====
+    function timestamp() {
+      return new Date().toLocaleTimeString('en-US', { hour12: false });
     }
 
-    function setStatus(online) {
-      statusBadge.textContent = online ? '● ONLINE' : '● OFFLINE';
-      statusBadge.className = 'status ' + (online ? 'online' : 'offline');
+    function logTo(el, msg, type = 'info') {
+      const cls = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
+      el.innerHTML += `\n<span class="log-time">[${timestamp()}]</span> <span class="${cls}">${msg}</span>`;
+      el.scrollTop = el.scrollHeight;
     }
 
-    function isTxtFile(filename) {
-      return filename && filename.toLowerCase().endsWith('.txt');
+    function sleep(ms) {
+      return new Promise(r => setTimeout(r, ms));
     }
 
-    function isImageFile(filename) {
-      const ext = filename ? filename.toLowerCase().split('.').pop() : '';
-      return ['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext);
-    }
+    // ===== DISCORD API HELPER =====
+    async function discordFetch(url, token, options = {}) {
+      const headers = {
+        'Authorization': `Bot ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
 
-    function shouldForward(attachment) {
-      const name = attachment.filename || '';
-      return isTxtFile(name) || isImageFile(name);
-    }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
 
-    function extractChannelId(input) {
-      // Check if it's an invite link
-      if (input.includes('discord.gg/')) {
-        const code = input.split('discord.gg/')[1].split('?')[0].split('/')[0];
-        log(`🔑 Found invite code: ${code} — attempting to resolve...`);
-        // We'll need to fetch the invite info
-        return fetch(`https://discord.com/api/v10/invites/${code}`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.channel && data.channel.id) {
-              log(`✅ Resolved channel ID: ${data.channel.id}`);
-              return data.channel.id;
-            } else {
-              throw new Error('Could not resolve invite');
-            }
-          });
+      try {
+        const res = await fetch(url, {
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (res.status === 429) {
+          const data = await res.json();
+          const retry = (data.retry_after || 5) * 1000;
+          throw new Error(`Rate limited. Retry in ${Math.ceil(retry/1000)}s`);
+        }
+
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
+        }
+
+        return res;
+      } catch (err) {
+        clearTimeout(timeout);
+        if (err.name === 'AbortError') throw new Error('Request timed out (15s)');
+        throw err;
       }
-      // Assume it's already a channel ID
-      return Promise.resolve(input.trim());
     }
 
-    async function scanChannel() {
+    // ===== WEBHOOK SENDER =====
+    async function sendToWebhook(webhookUrl, payload) {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.status === 429) {
+        const data = await res.json();
+        await sleep((data.retry_after || 2) * 1000);
+        return sendToWebhook(webhookUrl, payload);
+      }
+      return res.ok;
+    }
+
+    async function sendFileToWebhook(webhookUrl, fileUrl, filename, content) {
+      try {
+        const fileRes = await fetch(fileUrl);
+        const blob = await fileRes.blob();
+        const formData = new FormData();
+        formData.append('payload_json', JSON.stringify({
+          content: content,
+          username: 'Kers0ne Forwarder'
+        }));
+        formData.append('files[0]', blob, filename);
+
+        const res = await fetch(webhookUrl, { method: 'POST', body: formData });
+        if (res.status === 429) {
+          const data = await res.json();
+          await sleep((data.retry_after || 2) * 1000);
+          return sendFileToWebhook(webhookUrl, fileUrl, filename, content);
+        }
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    // ============================================================
+    //  TAB 1: CHANNEL FORWARDER
+    // ============================================================
+    const fwd = {
+      active: false,
+      interval: null,
+      lastId: null,
+      files: 0,
+      scans: 0,
+      errors: 0,
+      logEl: document.getElementById('log')
+    };
+
+    function fwdLog(msg, type) { logTo(fwd.logEl, msg, type); }
+
+    function fwdSetStatus(on) {
+      document.getElementById('statusDot').className = 'status-dot' + (on ? ' online' : '');
+      document.getElementById('statusText').textContent = on ? 'ONLINE' : 'OFFLINE';
+      document.getElementById('startBtn').disabled = on;
+      document.getElementById('stopBtn').disabled = !on;
+    }
+
+    function fwdUpdateStats() {
+      document.getElementById('fileCount').textContent = fwd.files;
+      document.getElementById('scanCount').textContent = fwd.scans;
+      document.getElementById('errorCount').textContent = fwd.errors;
+    }
+
+    function isImage(name) {
+      return /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name || '');
+    }
+
+    function isTxt(name) {
+      return /\.txt$/i.test(name || '');
+    }
+
+    async function fwdScan() {
+      const token = document.getElementById('botToken').value.trim();
+      const channelId = document.getElementById('channelInput').value.trim();
       const webhook = document.getElementById('webhook').value.trim();
-      
-      if (!currentChannelId || !webhook) {
-        log('❌ Missing channel or webhook');
+
+      if (!token || !channelId || !webhook) {
+        fwdLog('Missing token, channel ID, or webhook.', 'error');
+        fwdStop();
         return;
       }
 
-      // Use Discord's public widget API (no auth) — works for any channel that has widget enabled
-      // If widget is disabled, we use a fallback proxy
-      const apiUrl = `https://discord.com/api/v10/channels/${currentChannelId}/messages?limit=50`;
+      fwd.scans++;
+      fwdUpdateStats();
 
       try {
-        const response = await fetch(apiUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (compatible; CAT-forwarder/1.0)'
-          }
-        });
+        let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=50`;
+        if (fwd.lastId) url += `&before=${fwd.lastId}`;
 
-        if (!response.ok) {
-          log(`⚠️ API error: ${response.status} — trying alternative method...`);
-          // Fallback: use public Discord CDN if available
-          await fallbackScan(webhook);
+        const res = await discordFetch(url, token);
+        const messages = await res.json();
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+          fwdLog('No messages found or empty channel.', 'info');
           return;
         }
 
-        const messages = await response.json();
-        let newFiles = 0;
+        // Track newest message ID
+        if (!fwd.lastId) {
+          fwd.lastId = messages[0].id;
+          fwdLog(`Baseline set. Monitoring from message ${messages[0].id}. ${messages.length} messages in view.`, 'info');
+          return;
+        }
+
+        let newCount = 0;
 
         for (const msg of messages) {
-          if (msg.id === lastMessageId) continue;
-          
+          if (BigInt(msg.id) <= BigInt(fwd.lastId)) continue;
+          newCount++;
+
           const attachments = msg.attachments || [];
-          const validFiles = attachments.filter(shouldForward);
+          const author = msg.author?.username || 'Unknown';
 
-          if (validFiles.length > 0) {
-            log(`📩 Found ${validFiles.length} file(s) from ${msg.author.username}`);
+          for (const att of attachments) {
+            const name = att.filename || 'unknown';
 
-            for (const file of validFiles) {
+            if (isImage(name)) {
+              fwdLog(`Image found: ${name} by ${author}`, 'info');
+              const ok = await sendFileToWebhook(
+                webhook, att.url, name,
+                `🖼 **${name}** from \`${author}\``
+              );
+              if (ok) { fwd.files++; fwdLog(`Forwarded image: ${name}`, 'success'); }
+              else { fwd.errors++; fwdLog(`Failed to forward: ${name}`, 'error'); }
+            }
+            else if (isTxt(name)) {
+              fwdLog(`Text file found: ${name} by ${author}`, 'info');
               try {
-                if (isImageFile(file.filename)) {
-                  const imgRes = await fetch(file.url);
-                  const imgBlob = await imgRes.blob();
-                  const formData = new FormData();
-                  formData.append('payload_json', JSON.stringify({
-                    content: `🖼️ Image from ${msg.author.username}: \`${file.filename}\``,
-                    username: 'CAT Forwarder'
-                  }));
-                  formData.append('files[0]', imgBlob, file.filename);
-
-                  const res = await fetch(webhook, { method: 'POST', body: formData });
-                  if (res.ok) {
-                    newFiles++;
-                    log(`✅ Forwarded image: ${file.filename}`);
-                  } else {
-                    log(`⚠️ Failed image: ${file.filename} (${res.status})`);
-                  }
-                }
-                else if (isTxtFile(file.filename)) {
-                  const txtRes = await fetch(file.url);
-                  const txtContent = await txtRes.text();
-                  
-                  const payload = {
-                    content: `📄 Text from ${msg.author.username}: \`${file.filename}\`\n\`\`\`\n${txtContent.slice(0, 1900)}\n\`\`\``,
-                    username: 'CAT Forwarder'
-                  };
-                  
-                  const res = await fetch(webhook, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                  });
-                  
-                  if (res.ok) {
-                    newFiles++;
-                    log(`✅ Forwarded text: ${file.filename}`);
-                  } else {
-                    log(`⚠️ Failed text: ${file.filename} (${res.status})`);
-                  }
-                }
-              } catch (err) {
-                log(`❌ Error with ${file.filename}: ${err.message}`);
+                const txtRes = await fetch(att.url);
+                const txt = await txtRes.text();
+                const ok = await sendToWebhook(webhook, {
+                  content: `📄 **${name}** from \`${author}\`\n\`\`\`\n${txt.slice(0, 1800)}\n\`\`\``,
+                  username: 'Kers0ne Forwarder'
+                });
+                if (ok) { fwd.files++; fwdLog(`Forwarded text: ${name}`, 'success'); }
+                else { fwd.errors++; fwdLog(`Failed to forward: ${name}`, 'error'); }
+              } catch (e) {
+                fwd.errors++;
+                fwdLog(`Error reading ${name}: ${e.message}`, 'error');
               }
             }
           }
 
-          if (messages.length > 0) {
-            lastMessageId = messages[0].id;
+          // Also check message content for embedded links / text
+          if (msg.content && (msg.content.includes('http') || msg.content.length > 10)) {
+            // Forward text content too if it has substance
+            if (attachments.length === 0 && msg.content.length > 20) {
+              const ok = await sendToWebhook(webhook, {
+                content: `💬 **${author}**: ${msg.content.slice(0, 1900)}`,
+                username: 'Kers0ne Forwarder'
+              });
+              if (ok) { fwd.files++; fwdLog(`Forwarded message from ${author}`, 'success'); }
+            }
           }
         }
 
-        if (newFiles > 0) {
-          fileCounter += newFiles;
-          updateFileCount();
-          log(`📊 Total forwarded: ${fileCounter} files`);
+        // Update lastId to newest
+        if (messages.length > 0) {
+          fwd.lastId = messages[0].id;
+        }
+
+        if (newCount === 0) {
+          fwdLog(`Scan #${fwd.scans} — no new messages.`, 'info');
         } else {
-          log(`🔍 No new .txt or images found (${messages.length} messages scanned)`);
+          fwdLog(`Scan #${fwd.scans} — ${newCount} new message(s) processed.`, 'success');
         }
 
       } catch (err) {
-        log(`❌ Scan error: ${err.message}`);
+        fwd.errors++;
+        fwdLog(`Scan error: ${err.message}`, 'error');
       }
+
+      fwdUpdateStats();
     }
 
-    // Fallback: try to fetch via Discord's embed API (no auth required for some servers)
-    async function fallbackScan(webhook) {
-      try {
-        // Try the widget API as fallback
-        const widgetUrl = `https://discord.com/api/v10/guilds/${currentChannelId}/widget.json`;
-        const res = await fetch(widgetUrl);
-        if (res.ok) {
-          const data = await res.json();
-          log(`ℹ️ Widget data found, but messages require authentication`);
-          log(`💡 This channel may be private. Try using a bot token or enable widget.`);
-        } else {
-          log(`💡 Channel is private or widget disabled. Need authentication.`);
-        }
-      } catch (e) {
-        log(`💡 Cannot access channel — it's private.`);
-      }
-    }
-
-    async function startScanner() {
-      if (forwardActive) {
-        log('⚠️ Already running');
-        return;
-      }
-
-      const input = document.getElementById('channelInput').value.trim();
+    function fwdStart() {
+      const token = document.getElementById('botToken').value.trim();
+      const channelId = document.getElementById('channelInput').value.trim();
       const webhook = document.getElementById('webhook').value.trim();
 
-      if (!input || !webhook) {
-        log('❌ Fill channel and webhook');
+      if (!token) { fwdLog('Bot token is required.', 'error'); return; }
+      if (!channelId) { fwdLog('Channel ID is required.', 'error'); return; }
+      if (!webhook) { fwdLog('Webhook URL is required.', 'error'); return; }
+
+      fwd.active = true;
+      fwd.lastId = null;
+      fwd.files = 0;
+      fwd.scans = 0;
+      fwd.errors = 0;
+      fwdUpdateStats();
+      fwdSetStatus(true);
+
+      const interval = Math.max(5, parseInt(document.getElementById('scanInterval').value) || 15) * 1000;
+
+      fwdLog(`Starting forwarder on channel ${channelId}`, 'success');
+      fwdLog(`Scan interval: ${interval / 1000}s`, 'info');
+
+      fwdScan();
+      fwd.interval = setInterval(fwdScan, interval);
+
+      // Save config
+      localStorage.setItem('k0_token', token);
+      localStorage.setItem('k0_channel', channelId);
+      localStorage.setItem('k0_webhook', webhook);
+    }
+
+    function fwdStop() {
+      fwd.active = false;
+      if (fwd.interval) { clearInterval(fwd.interval); fwd.interval = null; }
+      fwdSetStatus(false);
+      fwdLog('Forwarder stopped.', 'error');
+    }
+
+    document.getElementById('startBtn').addEventListener('click', fwdStart);
+    document.getElementById('stopBtn').addEventListener('click', fwdStop);
+    document.getElementById('clearLog1').addEventListener('click', () => { fwd.logEl.innerHTML = ''; });
+
+    // ============================================================
+    //  TAB 2: LOADSTRING GRABBER
+    // ============================================================
+    const ls = {
+      active: false,
+      interval: null,
+      lastId: null,
+      count: 0,
+      scans: 0,
+      grabbed: [],
+      logEl: document.getElementById('lsLog')
+    };
+
+    function lsLog(msg, type) { logTo(ls.logEl, msg, type); }
+
+    function lsSetStatus(on) {
+      document.getElementById('lsStatusDot').className = 'status-dot' + (on ? ' online' : '');
+      document.getElementById('lsStatusText').textContent = on ? 'ONLINE' : 'OFFLINE';
+      document.getElementById('lsStartBtn').disabled = on;
+      document.getElementById('lsStopBtn').disabled = !on;
+    }
+
+    function lsUpdateStats() {
+      document.getElementById('lsCount').textContent = ls.count;
+      document.getElementById('lsScanCount').textContent = ls.scans;
+      document.getElementById('lsTotalCount').textContent = ls.count;
+    }
+
+    function extractLoadstrings(text) {
+      const results = [];
+      // Match loadstring patterns
+      const patterns = [
+        /loadstring\s*\(\s*game\s*:\s*HttpGet\s*\(\s*(['"`])(.*?)\1\s*\)\s*\)\s*\(\s*\)/gi,
+        /loadstring\s*\(\s*game\s*:\s*HttpGet\s*\(\s*(['"`])(.*?)\1\s*\)\s*\)/gi,
+        /loadstring\s*\(\s*(['"`])(.*?)\1\s*\)\s*\(\s*\)/gi,
+        /loadstring\s*\(\s*(['"`])(.*?)\1\s*\)/gi,
+        /(https?:\/\/[^\s"'<>]+\.(?:lua|txt|raw)[^\s"'<>]*)/gi,
+        /(https?:\/\/raw\.githubusercontent\.com\/[^\s"'<>]+)/gi,
+        /(https?:\/\/github\.com\/[^\s"'<>]+\/raw\/[^\s"'<>]+)/gi
+      ];
+
+      for (const pat of patterns) {
+        let m;
+        while ((m = pat.exec(text)) !== null) {
+          results.push(m[0]);
+        }
+      }
+
+      return [...new Set(results)];
+    }
+
+    function matchesFilter(text, filterStr) {
+      if (!filterStr.trim()) return true;
+      const keywords = filterStr.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+      if (keywords.length === 0) return true;
+      const lower = text.toLowerCase();
+      return keywords.some(k => lower.includes(k));
+    }
+
+    async function lsScan() {
+      const token = document.getElementById('lsBotToken').value.trim();
+      const channelId = document.getElementById('lsChannelInput').value.trim();
+      const webhook = document.getElementById('lsWebhook').value.trim();
+      const filter = document.getElementById('lsFilter').value.trim();
+
+      if (!token || !channelId || !webhook) {
+        lsLog('Missing token, channel ID, or webhook.', 'error');
+        lsStop();
         return;
       }
 
-      setStatus(true);
-      log('🔍 Resolving channel...');
+      ls.scans++;
+      lsUpdateStats();
 
       try {
-        currentChannelId = await extractChannelId(input);
-        if (!currentChannelId) {
-          log('❌ Could not resolve channel ID');
-          setStatus(false);
+        let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=50`;
+        if (ls.lastId) url += `&before=${ls.lastId}`;
+
+        const res = await discordFetch(url, token);
+        const messages = await res.json();
+
+        if (!Array.isArray(messages) || messages.length === 0) {
+          lsLog('No messages found.', 'info');
           return;
         }
 
-        // Save config
-        localStorage.setItem('forced_channel', input);
-        localStorage.setItem('forced_webhook', webhook);
+        if (!ls.lastId) {
+          ls.lastId = messages[0].id;
+          lsLog(`Baseline set. Monitoring from ${messages[0].id}.`, 'info');
+          return;
+        }
 
-        forwardActive = true;
-        fileCounter = 0;
-        updateFileCount();
-        lastMessageId = null;
+        let newCount = 0;
+        let foundLoadstrings = 0;
 
-        log(`✅ Channel resolved: ${currentChannelId}`);
-        log('🔄 Scanning every 15 seconds...');
-        
-        scanChannel(); // immediate first scan
-        scanInterval = setInterval(scanChannel, 15000);
+        for (const msg of messages) {
+          if (BigInt(msg.id) <= BigInt(ls.lastId)) continue;
+          newCount++;
+
+          const author = msg.author?.username || 'Unknown';
+          let textToSearch = msg.content || '';
+
+          // Also check attachments for .txt / .lua files
+          for (const att of (msg.attachments || [])) {
+            if (/\.(txt|lua)$/i.test(att.filename || '')) {
+              try {
+                const r = await fetch(att.url);
+                textToSearch += '\n' + await r.text();
+              } catch {}
+            }
+          }
+
+          // Also check embeds
+          for (const emb of (msg.embeds || [])) {
+            if (emb.description) textToSearch += '\n' + emb.description;
+            if (emb.url) textToSearch += '\n' + emb.url;
+          }
+
+          if (!matchesFilter(textToSearch, filter)) continue;
+
+          const loadstrings = extractLoadstrings(textToSearch);
+
+          if (loadstrings.length > 0) {
+            foundLoadstrings += loadstrings.length;
+            ls.count += loadstrings.length;
+
+            for (const lstr of loadstrings) {
+              ls.grabbed.push({
+                time: timestamp(),
+                author,
+                loadstring: lstr
+              });
+            }
+
+            // Send to webhook
+            const content = loadstrings.map(l => `\`${l}\``).join('\n');
+            const ok = await sendToWebhook(webhook, {
+              content: `⌘ **Loadstring Grabbed** from \`${author}\`\n${content}`,
+              username: 'Kers0ne Grabber'
+            });
+
+            if (ok) {
+              lsLog(`Grabbed ${loadstrings.length} loadstring(s) from ${author}`, 'success');
+            } else {
+              lsLog(`Webhook send failed for ${author}'s loadstrings`, 'error');
+            }
+
+            // Update preview
+            updateLsPreview();
+          }
+        }
+
+        if (messages.length > 0) ls.lastId = messages[0].id;
+
+        if (newCount === 0) {
+          lsLog(`Scan #${ls.scans} — no new messages.`, 'info');
+        } else {
+          lsLog(`Scan #${ls.scans} — ${newCount} msg(s), ${foundLoadstrings} loadstring(s) found.`, foundLoadstrings > 0 ? 'success' : 'info');
+        }
 
       } catch (err) {
-        log(`❌ Error: ${err.message}`);
-        setStatus(false);
+        lsLog(`Scan error: ${err.message}`, 'error');
       }
+
+      lsUpdateStats();
     }
 
-    function stopScanner() {
-      if (scanInterval) {
-        clearInterval(scanInterval);
-        scanInterval = null;
-      }
-      forwardActive = false;
-      setStatus(false);
-      log('⏹ Stopped');
+    function updateLsPreview() {
+      const el = document.getElementById('lsPreview');
+      el.classList.add('visible');
+      const recent = ls.grabbed.slice(-20).reverse();
+      el.textContent = recent.map(g =>
+        `[${g.time}] ${g.author}\n  ${g.loadstring}`
+      ).join('\n\n');
     }
 
-    function updateFileCount() {
-      fileCountEl.textContent = `📄 ${fileCounter} files`;
+    function lsStart() {
+      const token = document.getElementById('lsBotToken').value.trim();
+      const channelId = document.getElementById('lsChannelInput').value.trim();
+      const webhook = document.getElementById('lsWebhook').value.trim();
+
+      if (!token) { lsLog('Bot token is required.', 'error'); return; }
+      if (!channelId) { lsLog('Channel ID is required.', 'error'); return; }
+      if (!webhook) { lsLog('Webhook URL is required.', 'error'); return; }
+
+      ls.active = true;
+      ls.lastId = null;
+      ls.count = 0;
+      ls.scans = 0;
+      ls.grabbed = [];
+      lsUpdateStats();
+      lsSetStatus(true);
+      document.getElementById('lsPreview').classList.remove('visible');
+
+      const interval = Math.max(5, parseInt(document.getElementById('lsScanInterval').value) || 15) * 1000;
+
+      lsLog(`Starting grabber on channel ${channelId}`, 'success');
+      lsLog(`Filter: ${document.getElementById('lsFilter').value || '(none)'}`, 'info');
+
+      lsScan();
+      ls.interval = setInterval(lsScan, interval);
+
+      localStorage.setItem('k0_ls_token', token);
+      localStorage.setItem('k0_ls_channel', channelId);
+      localStorage.setItem('k0_ls_webhook', webhook);
     }
 
-    // ===== UI BINDINGS =====
-    document.getElementById('startBtn').addEventListener('click', startScanner);
-    document.getElementById('stopBtn').addEventListener('click', stopScanner);
+    function lsStop() {
+      ls.active = false;
+      if (ls.interval) { clearInterval(ls.interval); ls.interval = null; }
+      lsSetStatus(false);
+      lsLog('Grabber stopped.', 'error');
+    }
 
-    // Restore saved config
-    document.getElementById('channelInput').value = localStorage.getItem('forced_channel') || '';
-    document.getElementById('webhook').value = localStorage.getItem('forced_webhook') || '';
+    document.getElementById('lsStartBtn').addEventListener('click', lsStart);
+    document.getElementById('lsStopBtn').addEventListener('click', lsStop);
+    document.getElementById('clearLog2').addEventListener('click', () => { ls.logEl.innerHTML = ''; });
 
-    log('🐱 Forced reader ready — paste channel link or ID');
-    log('💡 Note: Private channels require widget to be enabled OR a bot token.');
+    // ===== RESTORE SAVED CONFIG =====
+    document.getElementById('botToken').value = localStorage.getItem('k0_token') || '';
+    document.getElementById('channelInput').value = localStorage.getItem('k0_channel') || '';
+    document.getElementById('webhook').value = localStorage.getItem('k0_webhook') || '';
+    document.getElementById('lsBotToken').value = localStorage.getItem('k0_ls_token') || '';
+    document.getElementById('lsChannelInput').value = localStorage.getItem('k0_ls_channel') || '';
+    document.getElementById('lsWebhook').value = localStorage.getItem('k0_ls_webhook') || '';
+
+    // ===== INIT LOGS =====
+    fwdLog('Kers0ne Forwarder v2.0 ready.', 'success');
+    fwdLog('Enter bot token + channel ID + webhook, then Start.', 'info');
+    lsLog('Loadstring Grabber ready.', 'success');
+    lsLog('Enter bot token + channel ID + webhook, then Start.', 'info');
   </script>
 </body>
 </html>
