@@ -658,112 +658,204 @@
 
   <script>
     // ============================================================
-    //  KERS0NE FORWARDER — CORE ENGINE
+    // KERS0NE FORWARDER — CLIENT ENGINE
     // ============================================================
 
-    // ===== TAB SWITCHING =====
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    const DISCORD_API = 'https://discord.com/api/v10';
+    const MAX_LOG_LINES = 300;
+    const MIN_SCAN_SECONDS = 5;
+    const MAX_SCAN_SECONDS = 120;
+
+    // ===== TABS =====
+    document.querySelectorAll('.tab-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach((item) => item.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(`tab-${button.dataset.tab}`).classList.add('active');
       });
     });
 
-    // ===== UTILITY =====
+    // ===== COMMON UTILITIES =====
     function timestamp() {
       return new Date().toLocaleTimeString('en-US', { hour12: false });
     }
 
-    function logTo(el, msg, type = 'info') {
-      const cls = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
-      el.innerHTML += `\n<span class="log-time">[${timestamp()}]</span> <span class="${cls}">${msg}</span>`;
-      el.scrollTop = el.scrollHeight;
+    function logTo(element, message, type = 'info') {
+      const line = document.createElement('div');
+      const time = document.createElement('span');
+      const body = document.createElement('span');
+
+      time.className = 'log-time';
+      time.textContent = `[${timestamp()}] `;
+      body.className = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
+      body.textContent = message;
+
+      line.append(time, body);
+      element.appendChild(line);
+      while (element.children.length > MAX_LOG_LINES) element.removeChild(element.firstChild);
+      element.scrollTop = element.scrollHeight;
     }
 
-    function sleep(ms) {
-      return new Promise(r => setTimeout(r, ms));
+    function clearLog(element) {
+      element.replaceChildren();
     }
 
-    // ===== DISCORD API HELPER =====
-    async function discordFetch(url, token, options = {}) {
-      const headers = {
-        'Authorization': `Bot ${token}`,
-        'Content-Type': 'application/json',
-        ...options.headers
-      };
+    function sleep(milliseconds) {
+      return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    }
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+    function getScanMilliseconds(inputId) {
+      const requested = Number.parseInt(document.getElementById(inputId).value, 10) || 15;
+      const seconds = Math.min(MAX_SCAN_SECONDS, Math.max(MIN_SCAN_SECONDS, requested));
+      document.getElementById(inputId).value = String(seconds);
+      return seconds * 1000;
+    }
 
+    function isDiscordChannelId(value) {
+      return /^\d{17,20}$/.test(value);
+    }
+
+    function isDiscordWebhook(value) {
       try {
-        const res = await fetch(url, {
-          ...options,
-          headers,
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-
-        if (res.status === 429) {
-          const data = await res.json();
-          const retry = (data.retry_after || 5) * 1000;
-          throw new Error(`Rate limited. Retry in ${Math.ceil(retry/1000)}s`);
-        }
-
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
-        }
-
-        return res;
-      } catch (err) {
-        clearTimeout(timeout);
-        if (err.name === 'AbortError') throw new Error('Request timed out (15s)');
-        throw err;
-      }
-    }
-
-    // ===== WEBHOOK SENDER =====
-    async function sendToWebhook(webhookUrl, payload) {
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.status === 429) {
-        const data = await res.json();
-        await sleep((data.retry_after || 2) * 1000);
-        return sendToWebhook(webhookUrl, payload);
-      }
-      return res.ok;
-    }
-
-    async function sendFileToWebhook(webhookUrl, fileUrl, filename, content) {
-      try {
-        const fileRes = await fetch(fileUrl);
-        const blob = await fileRes.blob();
-        const formData = new FormData();
-        formData.append('payload_json', JSON.stringify({
-          content: content,
-          username: 'Kers0ne Forwarder'
-        }));
-        formData.append('files[0]', blob, filename);
-
-        const res = await fetch(webhookUrl, { method: 'POST', body: formData });
-        if (res.status === 429) {
-          const data = await res.json();
-          await sleep((data.retry_after || 2) * 1000);
-          return sendFileToWebhook(webhookUrl, fileUrl, filename, content);
-        }
-        return res.ok;
+        const url = new URL(value);
+        return url.protocol === 'https:'
+          && ['discord.com', 'discordapp.com', 'ptb.discord.com', 'canary.discord.com'].includes(url.hostname)
+          && /^\/api\/webhooks\/\d+\/.+/.test(url.pathname);
       } catch {
         return false;
       }
     }
 
+    function validateConfiguration({ token, channelId, webhook }) {
+      if (!token) return 'Bot token is required.';
+      if (!isDiscordChannelId(channelId)) return 'Enter a valid Discord channel ID.';
+      if (!isDiscordWebhook(webhook)) return 'Enter a valid Discord webhook URL.';
+      return null;
+    }
+
+    function newestMessageId(messages) {
+      return messages.reduce((newest, message) => (
+        !newest || BigInt(message.id) > BigInt(newest) ? message.id : newest
+      ), null);
+    }
+
+    function chronological(messages) {
+      return [...messages].sort((first, second) => (
+        BigInt(first.id) < BigInt(second.id) ? -1 : BigInt(first.id) > BigInt(second.id) ? 1 : 0
+      ));
+    }
+
+    function truncate(value, maximum) {
+      return value.length > maximum ? `${value.slice(0, Math.max(0, maximum - 1))}…` : value;
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+
+    async function discordFetch(url, token, options = {}) {
+      try {
+        const response = await fetchWithTimeout(url, {
+          ...options,
+          headers: {
+            Authorization: `Bot ${token}`,
+            ...options.headers
+          }
+        });
+
+        if (response.status === 429) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(`Discord rate limit reached. Retry in ${Math.ceil(data.retry_after || 5)} seconds.`);
+        }
+        if (!response.ok) {
+          const details = await response.text().catch(() => '');
+          throw new Error(`Discord API returned HTTP ${response.status}${details ? `: ${truncate(details, 180)}` : ''}`);
+        }
+        return response;
+      } catch (error) {
+        if (error.name === 'AbortError') throw new Error('Discord API request timed out after 15 seconds.');
+        throw error;
+      }
+    }
+
+    async function postToWebhook(webhookUrl, requestFactory, attempt = 0) {
+      try {
+        const response = await fetchWithTimeout(webhookUrl, requestFactory());
+        if (response.status === 429 && attempt < 3) {
+          const data = await response.json().catch(() => ({}));
+          await sleep(Math.ceil((data.retry_after || 2) * 1000));
+          return postToWebhook(webhookUrl, requestFactory, attempt + 1);
+        }
+        if (!response.ok) {
+          const detail = await response.text().catch(() => '');
+          return { ok: false, error: `Webhook returned HTTP ${response.status}${detail ? `: ${truncate(detail, 160)}` : ''}` };
+        }
+        return { ok: true };
+      } catch (error) {
+        const message = error.name === 'AbortError' ? 'Webhook request timed out after 15 seconds.' : error.message;
+        return { ok: false, error: message };
+      }
+    }
+
+    function sendToWebhook(webhookUrl, payload) {
+      return postToWebhook(webhookUrl, () => ({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowed_mentions: { parse: [] }, ...payload })
+      }));
+    }
+
+    function sendFileToWebhook(webhookUrl, fileUrl, filename, content) {
+      return postToWebhook(webhookUrl, () => {
+        const formData = new FormData();
+        formData.append('payload_json', JSON.stringify({ content, username: 'Kers0ne Forwarder', allowed_mentions: { parse: [] } }));
+        formData.append('files[0]', fileUrl);
+        return { method: 'POST', body: formData };
+      });
+    }
+
+    async function sendAttachmentToWebhook(webhookUrl, attachment, author) {
+      try {
+        const response = await fetchWithTimeout(attachment.url);
+        if (!response.ok) return { ok: false, error: `Could not download ${attachment.filename} (HTTP ${response.status}).` };
+        const blob = await response.blob();
+        return postToWebhook(webhookUrl, () => {
+          const formData = new FormData();
+          formData.append('payload_json', JSON.stringify({
+            content: `${truncate(attachment.filename || 'Attachment', 160)} from ${truncate(author, 80)}`,
+            username: 'Kers0ne Forwarder',
+            allowed_mentions: { parse: [] }
+          }));
+          formData.append('files[0]', blob, attachment.filename || 'attachment');
+          return { method: 'POST', body: formData };
+        });
+      } catch (error) {
+        return { ok: false, error: error.name === 'AbortError' ? 'Attachment download timed out after 15 seconds.' : error.message };
+      }
+    }
+
+    function isForwardableAttachment(name) {
+      return /\.(txt|jpe?g|png|gif|webp|bmp|svg)$/i.test(name || '');
+    }
+
+    async function listNewMessages(channelId, token, lastId) {
+      const params = new URLSearchParams({ limit: '50' });
+      if (lastId) params.set('after', lastId);
+      const response = await discordFetch(`${DISCORD_API}/channels/${channelId}/messages?${params}`, token);
+      const messages = await response.json();
+      if (!Array.isArray(messages)) throw new Error('Discord returned an unexpected message response.');
+      return chronological(messages);
+    }
+
     // ============================================================
-    //  TAB 1: CHANNEL FORWARDER
+    // TAB 1: CHANNEL FORWARDER
     // ============================================================
     const fwd = {
       active: false,
@@ -772,144 +864,107 @@
       files: 0,
       scans: 0,
       errors: 0,
+      scanning: false,
       logEl: document.getElementById('log')
     };
 
-    function fwdLog(msg, type) { logTo(fwd.logEl, msg, type); }
+    function fwdLog(message, type) { logTo(fwd.logEl, message, type); }
 
-    function fwdSetStatus(on) {
-      document.getElementById('statusDot').className = 'status-dot' + (on ? ' online' : '');
-      document.getElementById('statusText').textContent = on ? 'ONLINE' : 'OFFLINE';
-      document.getElementById('startBtn').disabled = on;
-      document.getElementById('stopBtn').disabled = !on;
+    function fwdSetStatus(isOnline) {
+      document.getElementById('statusDot').className = `status-dot${isOnline ? ' online' : ''}`;
+      document.getElementById('statusText').textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+      document.getElementById('startBtn').disabled = isOnline;
+      document.getElementById('stopBtn').disabled = !isOnline;
     }
 
     function fwdUpdateStats() {
-      document.getElementById('fileCount').textContent = fwd.files;
-      document.getElementById('scanCount').textContent = fwd.scans;
-      document.getElementById('errorCount').textContent = fwd.errors;
-    }
-
-    function isImage(name) {
-      return /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name || '');
-    }
-
-    function isTxt(name) {
-      return /\.txt$/i.test(name || '');
+      document.getElementById('fileCount').textContent = String(fwd.files);
+      document.getElementById('scanCount').textContent = String(fwd.scans);
+      document.getElementById('errorCount').textContent = String(fwd.errors);
     }
 
     async function fwdScan() {
+      if (!fwd.active || fwd.scanning) return;
+      fwd.scanning = true;
+
       const token = document.getElementById('botToken').value.trim();
       const channelId = document.getElementById('channelInput').value.trim();
       const webhook = document.getElementById('webhook').value.trim();
-
-      if (!token || !channelId || !webhook) {
-        fwdLog('Missing token, channel ID, or webhook.', 'error');
-        fwdStop();
+      const validationError = validateConfiguration({ token, channelId, webhook });
+      if (validationError) {
+        fwdLog(validationError, 'error');
+        fwdStop('Configuration is no longer valid.');
+        fwd.scanning = false;
         return;
       }
 
-      fwd.scans++;
+      fwd.scans += 1;
       fwdUpdateStats();
 
       try {
-        let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=50`;
-        if (fwd.lastId) url += `&before=${fwd.lastId}`;
+        const messages = await listNewMessages(channelId, token, fwd.lastId);
+        if (!fwd.active) return;
 
-        const res = await discordFetch(url, token);
-        const messages = await res.json();
-
-        if (!Array.isArray(messages) || messages.length === 0) {
-          fwdLog('No messages found or empty channel.', 'info');
-          return;
-        }
-
-        // Track newest message ID
         if (!fwd.lastId) {
-          fwd.lastId = messages[0].id;
-          fwdLog(`Baseline set. Monitoring from message ${messages[0].id}. ${messages.length} messages in view.`, 'info');
+          fwd.lastId = newestMessageId(messages);
+          fwdLog(messages.length ? `Baseline set at the latest visible message. ${messages.length} existing message(s) will not be forwarded.` : 'Baseline set. No messages are currently visible.', 'info');
           return;
         }
 
-        let newCount = 0;
+        let processed = 0;
+        for (const message of messages) {
+          if (!fwd.active) return;
+          const author = message.author?.username || 'Unknown author';
+          const attachments = (message.attachments || []).filter((attachment) => isForwardableAttachment(attachment.filename));
 
-        for (const msg of messages) {
-          if (BigInt(msg.id) <= BigInt(fwd.lastId)) continue;
-          newCount++;
-
-          const attachments = msg.attachments || [];
-          const author = msg.author?.username || 'Unknown';
-
-          for (const att of attachments) {
-            const name = att.filename || 'unknown';
-
-            if (isImage(name)) {
-              fwdLog(`Image found: ${name} by ${author}`, 'info');
-              const ok = await sendFileToWebhook(
-                webhook, att.url, name,
-                `🖼 **${name}** from \`${author}\``
-              );
-              if (ok) { fwd.files++; fwdLog(`Forwarded image: ${name}`, 'success'); }
-              else { fwd.errors++; fwdLog(`Failed to forward: ${name}`, 'error'); }
-            }
-            else if (isTxt(name)) {
-              fwdLog(`Text file found: ${name} by ${author}`, 'info');
-              try {
-                const txtRes = await fetch(att.url);
-                const txt = await txtRes.text();
-                const ok = await sendToWebhook(webhook, {
-                  content: `📄 **${name}** from \`${author}\`\n\`\`\`\n${txt.slice(0, 1800)}\n\`\`\``,
-                  username: 'Kers0ne Forwarder'
-                });
-                if (ok) { fwd.files++; fwdLog(`Forwarded text: ${name}`, 'success'); }
-                else { fwd.errors++; fwdLog(`Failed to forward: ${name}`, 'error'); }
-              } catch (e) {
-                fwd.errors++;
-                fwdLog(`Error reading ${name}: ${e.message}`, 'error');
-              }
+          for (const attachment of attachments) {
+            const result = await sendAttachmentToWebhook(webhook, attachment, author);
+            if (result.ok) {
+              fwd.files += 1;
+              processed += 1;
+              fwdLog(`Forwarded attachment: ${attachment.filename}`, 'success');
+            } else {
+              fwd.errors += 1;
+              fwdLog(`Could not forward ${attachment.filename}: ${result.error}`, 'error');
             }
           }
 
-          // Also check message content for embedded links / text
-          if (msg.content && (msg.content.includes('http') || msg.content.length > 10)) {
-            // Forward text content too if it has substance
-            if (attachments.length === 0 && msg.content.length > 20) {
-              const ok = await sendToWebhook(webhook, {
-                content: `💬 **${author}**: ${msg.content.slice(0, 1900)}`,
-                username: 'Kers0ne Forwarder'
-              });
-              if (ok) { fwd.files++; fwdLog(`Forwarded message from ${author}`, 'success'); }
+          if (!attachments.length && message.content?.trim().length > 20) {
+            const result = await sendToWebhook(webhook, {
+              content: `${truncate(author, 80)}: ${truncate(message.content.trim(), 1800)}`,
+              username: 'Kers0ne Forwarder'
+            });
+            if (result.ok) {
+              fwd.files += 1;
+              processed += 1;
+              fwdLog(`Forwarded message from ${author}.`, 'success');
+            } else {
+              fwd.errors += 1;
+              fwdLog(`Could not forward message from ${author}: ${result.error}`, 'error');
             }
           }
         }
 
-        // Update lastId to newest
-        if (messages.length > 0) {
-          fwd.lastId = messages[0].id;
-        }
-
-        if (newCount === 0) {
-          fwdLog(`Scan #${fwd.scans} — no new messages.`, 'info');
-        } else {
-          fwdLog(`Scan #${fwd.scans} — ${newCount} new message(s) processed.`, 'success');
-        }
-
-      } catch (err) {
-        fwd.errors++;
-        fwdLog(`Scan error: ${err.message}`, 'error');
+        fwd.lastId = newestMessageId(messages) || fwd.lastId;
+        fwdLog(messages.length ? `Scan #${fwd.scans} complete — ${messages.length} new message(s), ${processed} forwarded.` : `Scan #${fwd.scans} complete — no new messages.`, messages.length ? 'success' : 'info');
+      } catch (error) {
+        fwd.errors += 1;
+        fwdLog(`Scan error: ${error.message}`, 'error');
+      } finally {
+        fwd.scanning = false;
+        fwdUpdateStats();
       }
-
-      fwdUpdateStats();
     }
 
     function fwdStart() {
       const token = document.getElementById('botToken').value.trim();
       const channelId = document.getElementById('channelInput').value.trim();
       const webhook = document.getElementById('webhook').value.trim();
-
-      if (!token) { fwdLog('Bot token is required.', 'error'); return; }
-      if (!channelId) { fwdLog('Channel ID is required.', 'error'); return; }
-      if (!webhook) { fwdLog('Webhook URL is required.', 'error'); return; }
+      const validationError = validateConfiguration({ token, channelId, webhook });
+      if (validationError) {
+        fwdLog(validationError, 'error');
+        return;
+      }
 
       fwd.active = true;
       fwd.lastId = null;
@@ -919,33 +974,27 @@
       fwdUpdateStats();
       fwdSetStatus(true);
 
-      const interval = Math.max(5, parseInt(document.getElementById('scanInterval').value) || 15) * 1000;
-
-      fwdLog(`Starting forwarder on channel ${channelId}`, 'success');
-      fwdLog(`Scan interval: ${interval / 1000}s`, 'info');
-
+      const interval = getScanMilliseconds('scanInterval');
+      fwdLog(`Forwarder started for channel ${channelId}.`, 'success');
+      fwdLog(`Scanning every ${interval / 1000} seconds. Credentials stay in this browser tab and are not saved.`, 'info');
       fwdScan();
-      fwd.interval = setInterval(fwdScan, interval);
-
-      // Save config
-      localStorage.setItem('k0_token', token);
-      localStorage.setItem('k0_channel', channelId);
-      localStorage.setItem('k0_webhook', webhook);
+      fwd.interval = window.setInterval(fwdScan, interval);
     }
 
-    function fwdStop() {
+    function fwdStop(reason = 'Forwarder stopped.') {
       fwd.active = false;
-      if (fwd.interval) { clearInterval(fwd.interval); fwd.interval = null; }
+      if (fwd.interval) window.clearInterval(fwd.interval);
+      fwd.interval = null;
       fwdSetStatus(false);
-      fwdLog('Forwarder stopped.', 'error');
+      fwdLog(reason, 'info');
     }
 
     document.getElementById('startBtn').addEventListener('click', fwdStart);
-    document.getElementById('stopBtn').addEventListener('click', fwdStop);
-    document.getElementById('clearLog1').addEventListener('click', () => { fwd.logEl.innerHTML = ''; });
+    document.getElementById('stopBtn').addEventListener('click', () => fwdStop());
+    document.getElementById('clearLog1').addEventListener('click', () => clearLog(fwd.logEl));
 
     // ============================================================
-    //  TAB 2: LOADSTRING GRABBER
+    // TAB 2: LOADSTRING GRABBER
     // ============================================================
     const ls = {
       active: false,
@@ -953,28 +1002,29 @@
       lastId: null,
       count: 0,
       scans: 0,
+      errors: 0,
       grabbed: [],
+      scanning: false,
       logEl: document.getElementById('lsLog')
     };
 
-    function lsLog(msg, type) { logTo(ls.logEl, msg, type); }
+    function lsLog(message, type) { logTo(ls.logEl, message, type); }
 
-    function lsSetStatus(on) {
-      document.getElementById('lsStatusDot').className = 'status-dot' + (on ? ' online' : '');
-      document.getElementById('lsStatusText').textContent = on ? 'ONLINE' : 'OFFLINE';
-      document.getElementById('lsStartBtn').disabled = on;
-      document.getElementById('lsStopBtn').disabled = !on;
+    function lsSetStatus(isOnline) {
+      document.getElementById('lsStatusDot').className = `status-dot${isOnline ? ' online' : ''}`;
+      document.getElementById('lsStatusText').textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+      document.getElementById('lsStartBtn').disabled = isOnline;
+      document.getElementById('lsStopBtn').disabled = !isOnline;
     }
 
     function lsUpdateStats() {
-      document.getElementById('lsCount').textContent = ls.count;
-      document.getElementById('lsScanCount').textContent = ls.scans;
-      document.getElementById('lsTotalCount').textContent = ls.count;
+      document.getElementById('lsCount').textContent = String(ls.count);
+      document.getElementById('lsScanCount').textContent = String(ls.scans);
+      document.getElementById('lsTotalCount').textContent = String(ls.count);
     }
 
     function extractLoadstrings(text) {
       const results = [];
-      // Match loadstring patterns
       const patterns = [
         /loadstring\s*\(\s*game\s*:\s*HttpGet\s*\(\s*(['"`])(.*?)\1\s*\)\s*\)\s*\(\s*\)/gi,
         /loadstring\s*\(\s*game\s*:\s*HttpGet\s*\(\s*(['"`])(.*?)\1\s*\)\s*\)/gi,
@@ -985,196 +1035,170 @@
         /(https?:\/\/github\.com\/[^\s"'<>]+\/raw\/[^\s"'<>]+)/gi
       ];
 
-      for (const pat of patterns) {
-        let m;
-        while ((m = pat.exec(text)) !== null) {
-          results.push(m[0]);
-        }
+      for (const pattern of patterns) {
+        let match;
+        while ((match = pattern.exec(text)) !== null) results.push(match[0]);
       }
-
       return [...new Set(results)];
     }
 
-    function matchesFilter(text, filterStr) {
-      if (!filterStr.trim()) return true;
-      const keywords = filterStr.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
-      if (keywords.length === 0) return true;
-      const lower = text.toLowerCase();
-      return keywords.some(k => lower.includes(k));
+    function matchesFilter(text, filterValue) {
+      const keywords = filterValue.split(',').map((keyword) => keyword.trim().toLowerCase()).filter(Boolean);
+      return !keywords.length || keywords.some((keyword) => text.toLowerCase().includes(keyword));
+    }
+
+    async function getMessageSearchText(message) {
+      let text = message.content || '';
+      for (const attachment of message.attachments || []) {
+        if (!/\.(txt|lua)$/i.test(attachment.filename || '')) continue;
+        try {
+          const response = await fetchWithTimeout(attachment.url);
+          if (response.ok) text += `\n${await response.text()}`;
+        } catch {
+          // An inaccessible attachment should not block scanning the rest of the message.
+        }
+      }
+      for (const embed of message.embeds || []) {
+        if (embed.description) text += `\n${embed.description}`;
+        if (embed.url) text += `\n${embed.url}`;
+      }
+      return text;
+    }
+
+    async function forwardLoadstring(webhook, loadstring, author) {
+      return sendToWebhook(webhook, {
+        content: `Loadstring identified from ${truncate(author, 80)}:\n\`\`\`\n${truncate(loadstring, 1800)}\n\`\`\``,
+        username: 'Kers0ne Grabber'
+      });
     }
 
     async function lsScan() {
+      if (!ls.active || ls.scanning) return;
+      ls.scanning = true;
+
       const token = document.getElementById('lsBotToken').value.trim();
       const channelId = document.getElementById('lsChannelInput').value.trim();
       const webhook = document.getElementById('lsWebhook').value.trim();
       const filter = document.getElementById('lsFilter').value.trim();
-
-      if (!token || !channelId || !webhook) {
-        lsLog('Missing token, channel ID, or webhook.', 'error');
-        lsStop();
+      const validationError = validateConfiguration({ token, channelId, webhook });
+      if (validationError) {
+        lsLog(validationError, 'error');
+        lsStop('Configuration is no longer valid.');
+        ls.scanning = false;
         return;
       }
 
-      ls.scans++;
+      ls.scans += 1;
       lsUpdateStats();
 
       try {
-        let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=50`;
-        if (ls.lastId) url += `&before=${ls.lastId}`;
-
-        const res = await discordFetch(url, token);
-        const messages = await res.json();
-
-        if (!Array.isArray(messages) || messages.length === 0) {
-          lsLog('No messages found.', 'info');
-          return;
-        }
+        const messages = await listNewMessages(channelId, token, ls.lastId);
+        if (!ls.active) return;
 
         if (!ls.lastId) {
-          ls.lastId = messages[0].id;
-          lsLog(`Baseline set. Monitoring from ${messages[0].id}.`, 'info');
+          ls.lastId = newestMessageId(messages);
+          lsLog(messages.length ? `Baseline set at the latest visible message. ${messages.length} existing message(s) will not be processed.` : 'Baseline set. No messages are currently visible.', 'info');
           return;
         }
 
-        let newCount = 0;
-        let foundLoadstrings = 0;
+        let identified = 0;
+        let forwarded = 0;
+        for (const message of messages) {
+          if (!ls.active) return;
+          const text = await getMessageSearchText(message);
+          if (!matchesFilter(text, filter)) continue;
 
-        for (const msg of messages) {
-          if (BigInt(msg.id) <= BigInt(ls.lastId)) continue;
-          newCount++;
-
-          const author = msg.author?.username || 'Unknown';
-          let textToSearch = msg.content || '';
-
-          // Also check attachments for .txt / .lua files
-          for (const att of (msg.attachments || [])) {
-            if (/\.(txt|lua)$/i.test(att.filename || '')) {
-              try {
-                const r = await fetch(att.url);
-                textToSearch += '\n' + await r.text();
-              } catch {}
-            }
-          }
-
-          // Also check embeds
-          for (const emb of (msg.embeds || [])) {
-            if (emb.description) textToSearch += '\n' + emb.description;
-            if (emb.url) textToSearch += '\n' + emb.url;
-          }
-
-          if (!matchesFilter(textToSearch, filter)) continue;
-
-          const loadstrings = extractLoadstrings(textToSearch);
-
-          if (loadstrings.length > 0) {
-            foundLoadstrings += loadstrings.length;
-            ls.count += loadstrings.length;
-
-            for (const lstr of loadstrings) {
-              ls.grabbed.push({
-                time: timestamp(),
-                author,
-                loadstring: lstr
-              });
-            }
-
-            // Send to webhook
-            const content = loadstrings.map(l => `\`${l}\``).join('\n');
-            const ok = await sendToWebhook(webhook, {
-              content: `⌘ **Loadstring Grabbed** from \`${author}\`\n${content}`,
-              username: 'Kers0ne Grabber'
-            });
-
-            if (ok) {
-              lsLog(`Grabbed ${loadstrings.length} loadstring(s) from ${author}`, 'success');
+          const author = message.author?.username || 'Unknown author';
+          const extracted = extractLoadstrings(text);
+          for (const loadstring of extracted) {
+            identified += 1;
+            ls.count += 1;
+            ls.grabbed.push({ time: timestamp(), author, loadstring });
+            const result = await forwardLoadstring(webhook, loadstring, author);
+            if (result.ok) {
+              forwarded += 1;
             } else {
-              lsLog(`Webhook send failed for ${author}'s loadstrings`, 'error');
+              ls.errors += 1;
+              lsLog(`Could not forward an item from ${author}: ${result.error}`, 'error');
             }
-
-            // Update preview
-            updateLsPreview();
           }
         }
 
-        if (messages.length > 0) ls.lastId = messages[0].id;
-
-        if (newCount === 0) {
-          lsLog(`Scan #${ls.scans} — no new messages.`, 'info');
-        } else {
-          lsLog(`Scan #${ls.scans} — ${newCount} msg(s), ${foundLoadstrings} loadstring(s) found.`, foundLoadstrings > 0 ? 'success' : 'info');
-        }
-
-      } catch (err) {
-        lsLog(`Scan error: ${err.message}`, 'error');
+        ls.lastId = newestMessageId(messages) || ls.lastId;
+        updateLsPreview();
+        lsLog(messages.length ? `Scan #${ls.scans} complete — ${identified} identified, ${forwarded} forwarded.` : `Scan #${ls.scans} complete — no new messages.`, identified ? 'success' : 'info');
+      } catch (error) {
+        ls.errors += 1;
+        lsLog(`Scan error: ${error.message}`, 'error');
+      } finally {
+        ls.scanning = false;
+        lsUpdateStats();
       }
-
-      lsUpdateStats();
     }
 
     function updateLsPreview() {
-      const el = document.getElementById('lsPreview');
-      el.classList.add('visible');
-      const recent = ls.grabbed.slice(-20).reverse();
-      el.textContent = recent.map(g =>
-        `[${g.time}] ${g.author}\n  ${g.loadstring}`
-      ).join('\n\n');
+      const element = document.getElementById('lsPreview');
+      if (!ls.grabbed.length) {
+        element.classList.remove('visible');
+        return;
+      }
+      element.classList.add('visible');
+      element.textContent = ls.grabbed.slice(-20).reverse().map((item) => (
+        `[${item.time}] ${item.author}\n  ${item.loadstring}`
+      )).join('\n\n');
     }
 
     function lsStart() {
       const token = document.getElementById('lsBotToken').value.trim();
       const channelId = document.getElementById('lsChannelInput').value.trim();
       const webhook = document.getElementById('lsWebhook').value.trim();
-
-      if (!token) { lsLog('Bot token is required.', 'error'); return; }
-      if (!channelId) { lsLog('Channel ID is required.', 'error'); return; }
-      if (!webhook) { lsLog('Webhook URL is required.', 'error'); return; }
+      const validationError = validateConfiguration({ token, channelId, webhook });
+      if (validationError) {
+        lsLog(validationError, 'error');
+        return;
+      }
 
       ls.active = true;
       ls.lastId = null;
       ls.count = 0;
       ls.scans = 0;
+      ls.errors = 0;
       ls.grabbed = [];
       lsUpdateStats();
       lsSetStatus(true);
-      document.getElementById('lsPreview').classList.remove('visible');
+      updateLsPreview();
 
-      const interval = Math.max(5, parseInt(document.getElementById('lsScanInterval').value) || 15) * 1000;
-
-      lsLog(`Starting grabber on channel ${channelId}`, 'success');
-      lsLog(`Filter: ${document.getElementById('lsFilter').value || '(none)'}`, 'info');
-
+      const interval = getScanMilliseconds('lsScanInterval');
+      lsLog(`Grabber started for channel ${channelId}.`, 'success');
+      lsLog(`Scanning every ${interval / 1000} seconds. Credentials stay in this browser tab and are not saved.`, 'info');
       lsScan();
-      ls.interval = setInterval(lsScan, interval);
-
-      localStorage.setItem('k0_ls_token', token);
-      localStorage.setItem('k0_ls_channel', channelId);
-      localStorage.setItem('k0_ls_webhook', webhook);
+      ls.interval = window.setInterval(lsScan, interval);
     }
 
-    function lsStop() {
+    function lsStop(reason = 'Grabber stopped.') {
       ls.active = false;
-      if (ls.interval) { clearInterval(ls.interval); ls.interval = null; }
+      if (ls.interval) window.clearInterval(ls.interval);
+      ls.interval = null;
       lsSetStatus(false);
-      lsLog('Grabber stopped.', 'error');
+      lsLog(reason, 'info');
     }
 
     document.getElementById('lsStartBtn').addEventListener('click', lsStart);
-    document.getElementById('lsStopBtn').addEventListener('click', lsStop);
-    document.getElementById('clearLog2').addEventListener('click', () => { ls.logEl.innerHTML = ''; });
+    document.getElementById('lsStopBtn').addEventListener('click', () => lsStop());
+    document.getElementById('clearLog2').addEventListener('click', () => clearLog(ls.logEl));
 
-    // ===== RESTORE SAVED CONFIG =====
-    document.getElementById('botToken').value = localStorage.getItem('k0_token') || '';
-    document.getElementById('channelInput').value = localStorage.getItem('k0_channel') || '';
-    document.getElementById('webhook').value = localStorage.getItem('k0_webhook') || '';
-    document.getElementById('lsBotToken').value = localStorage.getItem('k0_ls_token') || '';
-    document.getElementById('lsChannelInput').value = localStorage.getItem('k0_ls_channel') || '';
-    document.getElementById('lsWebhook').value = localStorage.getItem('k0_ls_webhook') || '';
+    window.addEventListener('beforeunload', () => {
+      if (fwd.interval) window.clearInterval(fwd.interval);
+      if (ls.interval) window.clearInterval(ls.interval);
+    });
 
-    // ===== INIT LOGS =====
-    fwdLog('Kers0ne Forwarder v2.0 ready.', 'success');
-    fwdLog('Enter bot token + channel ID + webhook, then Start.', 'info');
+    // Credentials are deliberately never restored from local storage.
+    clearLog(fwd.logEl);
+    clearLog(ls.logEl);
+    fwdLog('Kers0ne Forwarder ready.', 'success');
+    fwdLog('Enter a bot token, channel ID, and Discord webhook URL to begin.', 'info');
     lsLog('Loadstring Grabber ready.', 'success');
-    lsLog('Enter bot token + channel ID + webhook, then Start.', 'info');
+    lsLog('Enter a bot token, channel ID, and Discord webhook URL to begin.', 'info');
   </script>
 </body>
 </html>
